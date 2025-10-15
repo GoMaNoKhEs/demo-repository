@@ -1,0 +1,32 @@
+steps:
+  # Étape 1 : Installation des dépendances de la fonction
+  - name: 'gcr.io/cloud-builders/npm'
+    id: install_dependencies
+    args: ['install']
+    dir: 'functions/api_trigger_agent'
+    
+  # Étape 2 : Déploiement de la Cloud Function (Passerelle API)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: deploy_function
+    args:
+      - functions
+      - deploy
+      - api_trigger_agent
+      - --region=europe-west9
+      - --source=functions/api_trigger_agent
+      - --entry-point=triggerAgent
+      - --runtime=nodejs20
+      - --trigger-http
+      - --allow-unauthenticated
+      - --timeout=540s
+      # Utilisation du compte de service Agent Runner pour l'exécution
+      - --service-account=agent-runner@$PROJECT_ID.iam.gserviceaccount.com
+      # Accès sécurisé aux secrets Manager
+      - --set-secrets=API_KEY_VERTEX=projects/$PROJECT_ID/secrets/API_KEY_VERTEX/versions/latest
+      - --set-secrets=USER_DATA_VAULT=projects/$PROJECT_ID/secrets/USER_DATA_VAULT/versions/latest
+
+substitutions:
+  # PROJECT_ID est automatiquement injecté par Cloud Build
+  _SERVICE_ACCOUNT: agent-runner@$PROJECT_ID.iam.gserviceaccount.com
+
+timeout: '1600s' # Temps total maximum pour le build (30 minutes)
