@@ -1,0 +1,266 @@
+import { Box, Typography, LinearProgress, Chip } from '@mui/material';
+import { motion } from 'framer-motion';
+import { useEffect, useRef } from 'react';
+import {
+  CheckCircle as CheckIcon,
+  RadioButtonUnchecked as PendingIcon,
+  Error as ErrorIcon,
+  Autorenew as InProgressIcon,
+} from '@mui/icons-material';
+import type { ProcessStep } from '../../types';
+import { celebrateSuccess } from '../../utils/confetti';
+
+interface ProcessTimelineProps {
+  steps: ProcessStep[];
+  currentStepIndex: number;
+}
+
+export const ProcessTimeline = ({ steps, currentStepIndex }: ProcessTimelineProps) => {
+  // Ref pour suivre si le confetti a déjà été déclenché
+  const confettiTriggered = useRef(false);
+
+  // Vérifier si toutes les étapes sont complétées
+  const allStepsCompleted = steps.every(step => step.status === 'completed');
+
+  // Déclencher le confetti quand toutes les étapes sont complétées (une seule fois)
+  useEffect(() => {
+    if (allStepsCompleted && !confettiTriggered.current) {
+      confettiTriggered.current = true;
+      // Petit délai pour l'effet
+      setTimeout(() => {
+        celebrateSuccess();
+      }, 300);
+    }
+    // Reset si les étapes changent (nouveau processus)
+    if (!allStepsCompleted) {
+      confettiTriggered.current = false;
+    }
+  }, [allStepsCompleted]);
+
+  const getStepIcon = (step: ProcessStep) => {
+    switch (step.status) {
+      case 'completed':
+        return <CheckIcon sx={{ color: 'success.main', fontSize: 28 }} />;
+      case 'in-progress':
+        return (
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+          >
+            <InProgressIcon sx={{ color: 'primary.main', fontSize: 28 }} />
+          </motion.div>
+        );
+      case 'error':
+        return <ErrorIcon sx={{ color: 'error.main', fontSize: 28 }} />;
+      case 'pending':
+      default:
+        return <PendingIcon sx={{ color: 'action.disabled', fontSize: 28 }} />;
+    }
+  };
+
+  const getStepColor = (step: ProcessStep) => {
+    switch (step.status) {
+      case 'completed':
+        return 'success.main';
+      case 'in-progress':
+        return 'primary.main';
+      case 'error':
+        return 'error.main';
+      case 'pending':
+      default:
+        return 'action.disabled';
+    }
+  };
+
+  const getDuration = (step: ProcessStep) => {
+    if (!step.startedAt) return null;
+    const end = step.completedAt || new Date();
+    const duration = Math.floor((end.getTime() - step.startedAt.getTime()) / 1000);
+    
+    if (duration < 60) return `${duration}s`;
+    const minutes = Math.floor(duration / 60);
+    const seconds = duration % 60;
+    return `${minutes}m ${seconds}s`;
+  };
+
+  const sortedSteps = [...steps].sort((a, b) => a.order - b.order);
+
+  return (
+    <Box sx={{ position: 'relative', py: 2 }}>
+      {sortedSteps.map((step, index) => {
+        const isActive = step.status === 'in-progress';
+        const isCompleted = step.status === 'completed';
+        const hasError = step.status === 'error';
+        const showProgressBar = index < sortedSteps.length - 1;
+        const progressValue = isCompleted ? 100 : isActive ? 50 : 0;
+
+        return (
+          <Box key={step.id}>
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 2,
+                  position: 'relative',
+                  pb: showProgressBar ? 3 : 0,
+                }}
+              >
+                {/* Icône */}
+                <Box
+                  sx={{
+                    position: 'relative',
+                    zIndex: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 48,
+                    height: 48,
+                    borderRadius: '50%',
+                    backgroundColor: isActive ? 'primary.lighter' : 'background.paper',
+                    border: 2,
+                    borderColor: getStepColor(step),
+                    transition: 'all 0.3s',
+                  }}
+                >
+                  {getStepIcon(step)}
+                </Box>
+
+                {/* Contenu */}
+                <Box
+                  sx={{
+                    flexGrow: 1,
+                    pt: 0.5,
+                    minWidth: 0,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight={isActive ? 'bold' : 'medium'}
+                      sx={{
+                        color: hasError ? 'error.main' : 'text.primary',
+                        flexGrow: 1,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {step.name}
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                      {getDuration(step) && (
+                        <Chip
+                          label={getDuration(step)}
+                          size="small"
+                          sx={{ height: 20, fontSize: '0.7rem' }}
+                        />
+                      )}
+                      
+                      {step.status === 'completed' && (
+                        <Chip
+                          label="✓"
+                          size="small"
+                          color="success"
+                          sx={{ height: 20, minWidth: 24, '& .MuiChip-label': { px: 0.5 } }}
+                        />
+                      )}
+                      
+                      {step.status === 'in-progress' && (
+                        <Chip
+                          label="En cours"
+                          size="small"
+                          color="primary"
+                          sx={{ height: 20, fontSize: '0.7rem' }}
+                        />
+                      )}
+                    </Box>
+                  </Box>
+
+                  {hasError && step.errorMessage && (
+                    <Typography
+                      variant="caption"
+                      color="error"
+                      sx={{
+                        display: 'block',
+                        mt: 0.5,
+                        wordWrap: 'break-word',
+                      }}
+                    >
+                      ⚠️ {step.errorMessage}
+                    </Typography>
+                  )}
+                </Box>
+
+                {/* Barre de progression entre les étapes */}
+                {showProgressBar && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      left: 23,
+                      top: 48,
+                      width: 2,
+                      height: 'calc(100% - 24px)',
+                      zIndex: 1,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        backgroundColor: 'divider',
+                        position: 'relative',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <motion.div
+                        initial={{ height: '0%' }}
+                        animate={{ height: `${progressValue}%` }}
+                        transition={{ duration: 0.5 }}
+                        style={{
+                          width: '100%',
+                          backgroundColor: isCompleted
+                            ? 'var(--mui-palette-success-main)'
+                            : isActive
+                            ? 'var(--mui-palette-primary-main)'
+                            : 'var(--mui-palette-action-disabled)',
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+            </motion.div>
+          </Box>
+        );
+      })}
+
+      {/* Progression globale */}
+      <Box sx={{ mt: 3, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="caption" fontWeight="bold">
+            Progression globale
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {currentStepIndex + 1} / {steps.length} étapes
+          </Typography>
+        </Box>
+        <LinearProgress
+          variant="determinate"
+          value={((currentStepIndex + 1) / steps.length) * 100}
+          sx={{
+            height: 8,
+            borderRadius: 1,
+            backgroundColor: 'action.hover',
+          }}
+        />
+      </Box>
+    </Box>
+  );
+};
