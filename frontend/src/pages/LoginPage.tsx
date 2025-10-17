@@ -5,6 +5,7 @@ import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../stores/useAppStore';
+import { AnimatedPage } from '../components/common/AnimatedPage';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
@@ -30,16 +31,17 @@ export const LoginPage = () => {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #4285F4 0%, #34A853 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        p: 2,
-      }}
-    >
+    <AnimatedPage>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #4285F4 0%, #34A853 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: 2,
+        }}
+      >
       <Container maxWidth="sm">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
@@ -105,5 +107,6 @@ export const LoginPage = () => {
         </motion.div>
       </Container>
     </Box>
+    </AnimatedPage>
   );
 };

@@ -9,6 +9,7 @@ import {
   AutoAwesome,
   CheckCircle,
 } from '@mui/icons-material';
+import { AnimatedPage } from '../components/common/AnimatedPage';
 
 const features = [
   {
@@ -47,7 +48,8 @@ export const HomePage = () => {
   const navigate = useNavigate();
 
   return (
-    <Box>
+    <AnimatedPage>
+      <Box sx={{ width: '100%', minHeight: '100vh', backgroundColor: 'background.default' }}>
       {/* Hero Section */}
       <Box
         sx={{
@@ -191,5 +193,6 @@ export const HomePage = () => {
         </Container>
       </Box>
     </Box>
+    </AnimatedPage>
   );
 };

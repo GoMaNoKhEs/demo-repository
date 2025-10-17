@@ -13,6 +13,7 @@ interface AppState {
   // Activity Logs
   activityLogs: ActivityLog[];
   addActivityLog: (log: ActivityLog) => void;
+  setActivityLogs: (logs: ActivityLog[]) => void;
   clearActivityLogs: () => void;
   
   // Chat Messages
@@ -42,6 +43,7 @@ export const useAppStore = create<AppState>((set) => ({
   addActivityLog: (log) => set((state) => ({
     activityLogs: [...state.activityLogs, log]
   })),
+  setActivityLogs: (logs) => set({ activityLogs: logs }),
   clearActivityLogs: () => set({ activityLogs: [] }),
   
   // Chat Messages
