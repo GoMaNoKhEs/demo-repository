@@ -1,14 +1,13 @@
-import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline } from '@mui/material';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SnackbarProvider } from 'notistack';
 import { AnimatePresence } from 'framer-motion';
-import { theme } from './theme';
+import { ThemeModeProvider } from './contexts/ThemeModeContext';
 import { MainLayout } from './components/layout/MainLayout';
 import { HomePage } from './pages/HomePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
+import './styles/resizable-panels.css';
 
 const queryClient = new QueryClient();
 
@@ -33,14 +32,13 @@ function AnimatedRoutes() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
+      <ThemeModeProvider>
         <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical: 'top', horizontal: 'right' }}>
           <BrowserRouter>
             <AnimatedRoutes />
           </BrowserRouter>
         </SnackbarProvider>
-      </ThemeProvider>
+      </ThemeModeProvider>
     </QueryClientProvider>
   );
 }

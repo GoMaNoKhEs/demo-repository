@@ -1,10 +1,48 @@
-import { Box, Typography, LinearProgress, Chip } from '@mui/material';
+import { Box, Typography, LinearProgress, Chip, Button, Tooltip } from '@mui/material';
+import { Download as DownloadIcon } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useAppStore } from '../../stores/useAppStore';
 import { AnimatedNumber } from '../common/AnimatedNumber';
+import { ThemeToggleButton } from '../common/ThemeToggleButton';
+import { generatePdfReport } from '../../utils/pdfExport';
+import { useMemo } from 'react';
 
 export const DashboardHeader = () => {
-  const { currentProcess } = useAppStore();
+  const { currentProcess, activityLogs } = useAppStore();
+
+  // Calcul des statistiques (hook appelé avant tout return)
+  const completedSteps = currentProcess?.steps.filter(s => s.status === 'completed').length || 0;
+  const totalSteps = currentProcess?.steps.length || 0;
+  const progress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
+
+  const stats = useMemo(() => {
+    if (!currentProcess) return null;
+    
+    const timeSaved = completedSteps * 2.5;
+    const errorsFixed = activityLogs.filter(log => 
+      log.message.toLowerCase().includes('erreur') || 
+      log.message.toLowerCase().includes('correction') ||
+      log.type === 'error' ||
+      log.type === 'warning'
+    ).length + Math.floor(completedSteps * 1.8);
+    const successRate = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
+
+    return {
+      timeSaved,
+      errorsFixed,
+      successRate,
+      completedSteps,
+      totalActions: activityLogs.length,
+      avgResponseTime: 1.2,
+    };
+  }, [currentProcess, completedSteps, totalSteps, activityLogs]);
+
+  // Fonction pour générer le rapport PDF
+  const handleDownloadPdf = () => {
+    if (currentProcess && stats) {
+      generatePdfReport(currentProcess, activityLogs, stats);
+    }
+  };
 
   // Afficher un placeholder si pas de processus
   if (!currentProcess) {
@@ -19,10 +57,6 @@ export const DashboardHeader = () => {
       </Box>
     );
   }
-
-  const completedSteps = currentProcess.steps.filter(s => s.status === 'completed').length;
-  const totalSteps = currentProcess.steps.length;
-  const progress = (completedSteps / totalSteps) * 100;
 
   return (
     <motion.div
@@ -49,23 +83,62 @@ export const DashboardHeader = () => {
             Mission : {currentProcess.title}
           </Typography>
           
-          <Chip
-            label={
-              <>
-                <AnimatedNumber value={completedSteps} />
-                /
-                <AnimatedNumber value={totalSteps} />
-                {' '}étapes
-              </>
-            }
-            color="primary"
-            size="medium"
-            sx={{ 
-              fontSize: { xs: '0.875rem', sm: '1rem' }, 
-              px: 1, 
-              py: { xs: 2, sm: 2.5 } 
-            }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Box className="theme-toggle">
+              <ThemeToggleButton />
+            </Box>
+            
+            <Tooltip title="Télécharger le rapport PDF">
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={handleDownloadPdf}
+                size="small"
+                className="pdf-export-button"
+                sx={{ 
+                  display: { xs: 'none', md: 'flex' },
+                  textTransform: 'none',
+                }}
+              >
+                Rapport PDF
+              </Button>
+            </Tooltip>
+
+            <Tooltip title="Télécharger le rapport">
+              <Button
+                variant="outlined"
+                onClick={handleDownloadPdf}
+                size="small"
+                className="pdf-export-button"
+                sx={{ 
+                  display: { xs: 'flex', md: 'none' },
+                  minWidth: 'auto',
+                  px: 1,
+                }}
+                aria-label="Télécharger le rapport PDF"
+              >
+                <DownloadIcon fontSize="small" />
+              </Button>
+            </Tooltip>
+            
+            <Chip
+              label={
+                <>
+                  <AnimatedNumber value={completedSteps} />
+                  /
+                  <AnimatedNumber value={totalSteps} />
+                  {' '}étapes
+                </>
+              }
+              color="primary"
+              size="medium"
+              sx={{ 
+                fontSize: { xs: '0.875rem', sm: '1rem' }, 
+                px: 1, 
+                py: { xs: 2, sm: 2.5 } 
+              }}
+            />
+          </Box>
         </Box>
 
         <LinearProgress

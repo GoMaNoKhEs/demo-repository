@@ -1,5 +1,5 @@
 import { Box, Paper, Typography, IconButton, Tooltip, Tabs, Tab, Drawer, AppBar, Toolbar, Accordion, AccordionSummary, AccordionDetails, LinearProgress } from '@mui/material';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { 
   Refresh as RefreshIcon,
   ChevronLeft as ChevronLeftIcon,
@@ -20,12 +20,20 @@ import ManualTakeoverButton from '../components/dashboard/ManualTakeoverButton';
 import DecisionHistory, { type Decision } from '../components/dashboard/DecisionHistory';
 import { ChatInterface } from '../components/chat/ChatInterface';
 import { AnimatedPage } from '../components/common/AnimatedPage';
+import { ThemeToggleButton } from '../components/common/ThemeToggleButton';
+import { OnboardingTour } from '../components/onboarding/OnboardingTour';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useAppStore } from '../stores/useAppStore';
 import { useNotifications } from '../hooks/useNotifications';
-import { useIsMobile, useIsSmallScreen } from '../hooks/useMediaQuery';
+import { useIsMobile } from '../hooks/useMediaQuery';
 import { useKeyboardNavigation, useFocusVisible } from '../hooks/useKeyboardNavigation';
 import { mockProcess, mockActivityLogs } from '../mocks/data';
 import { subscribeToProcess, subscribeToActivityLogs } from '../services/realtime';
+
+// Lazy load des composants lourds pour optimiser le bundle
+const StatsPanel = lazy(() => import('../components/dashboard/StatsPanel').then(m => ({ default: m.StatsPanel })));
+const CelebrationOverlay = lazy(() => import('../components/celebration/CelebrationOverlay').then(m => ({ default: m.CelebrationOverlay })));
+const DemoModeControls = lazy(() => import('../components/demo/DemoModeControls').then(m => ({ default: m.DemoModeControls })));
 
 export const DashboardPage = () => {
   const {
@@ -34,6 +42,7 @@ export const DashboardPage = () => {
     activityLogs,
     setActivityLogs,
     addActivityLog,
+    addChatMessage,
     clearChatMessages,
     chatMessages,
   } = useAppStore();
@@ -53,11 +62,10 @@ export const DashboardPage = () => {
   const [criticalActionModalOpen, setCriticalActionModalOpen] = useState(false);
   const [pendingCriticalAction, setPendingCriticalAction] = useState<CriticalAction | null>(null);
   const [decisions, setDecisions] = useState<Decision[]>([]);
-  const [currentTab, setCurrentTab] = useState(0); // 0 = Activity Logs, 1 = Decision History
+  const [currentTab, setCurrentTab] = useState(0); // 0 = Activity Logs, 1 = Decision History, 2 = Statistics
 
   // États pour responsive mobile
   const isMobile = useIsMobile();
-  const isSmallScreen = useIsSmallScreen();
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   
@@ -67,6 +75,13 @@ export const DashboardPage = () => {
   // États pour toggle des panneaux latéraux
   const [showLeftPanel, setShowLeftPanel] = useState(true);
   const [showCenterPanel, setShowCenterPanel] = useState(true);
+
+  // État pour la célébration
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [hasShownCelebration, setHasShownCelebration] = useState(false);
+
+  // État pour le mode démo
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   // Navigation clavier : Focus visible global
   useFocusVisible();
@@ -260,6 +275,40 @@ export const DashboardPage = () => {
   //   return () => unsubscribe();
   // }, []);
 
+  // Détecter la completion de la mission pour la célébration
+  useEffect(() => {
+    if (!currentProcess || hasShownCelebration) return;
+
+    // Vérifier si toutes les étapes sont complétées
+    const allStepsCompleted = currentProcess.steps.every(step => step.status === 'completed');
+    const isProcessCompleted = currentProcess.status === 'completed' || allStepsCompleted;
+
+    if (isProcessCompleted && !hasShownCelebration) {
+      // Attendre 500ms pour laisser l'animation de la dernière étape se terminer
+      setTimeout(() => {
+        setShowCelebration(true);
+        setHasShownCelebration(true);
+        
+        // Ajouter un message de félicitations dans le chat
+        addChatMessage({
+          id: `celebration-${Date.now()}`,
+          role: 'agent',
+          content: '🎉 Félicitations ! Votre mission de déclaration de naissance est maintenant complète. Tous les documents ont été soumis et votre rendez-vous est confirmé. Vous avez économisé environ 2.5 heures de démarches administratives !',
+          timestamp: new Date(),
+        });
+        
+        // Log de célébration
+        addActivityLog({
+          id: `celebration-log-${Date.now()}`,
+          processId: currentProcess.id,
+          type: 'success',
+          message: '🎊 Mission complétée avec succès ! Toutes les étapes ont été finalisées.',
+          timestamp: new Date(),
+        });
+      }, 500);
+    }
+  }, [currentProcess, hasShownCelebration, addChatMessage, addActivityLog]);
+
   // Fonction de retry en cas d'erreur
   const handleRetry = () => {
     if (useRealtime) {
@@ -401,6 +450,9 @@ export const DashboardPage = () => {
 
   return (
     <AnimatedPage>
+      {/* Tour d'onboarding interactif */}
+      <OnboardingTour />
+
       <Box 
         component="main"
         role="main"
@@ -442,21 +494,24 @@ export const DashboardPage = () => {
               SimplifIA
             </Typography>
             
-            <IconButton
-              edge="end"
-              color="primary"
-              onClick={() => setMobileChatOpen(true)}
-              aria-label="Ouvrir le chat"
-            >
-              <ChatIcon />
-            </IconButton>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <ThemeToggleButton />
+              <IconButton
+                edge="end"
+                color="primary"
+                onClick={() => setMobileChatOpen(true)}
+                aria-label="Ouvrir le chat"
+              >
+                <ChatIcon />
+              </IconButton>
+            </Box>
           </Toolbar>
         </AppBar>
       )}
 
       {/* Header avec progression (desktop/tablet) */}
       {!isMobile && (
-        <Box sx={{ px: { xs: 2, md: 3 }, pt: { xs: 2, md: 3 } }}>
+        <Box sx={{ px: { xs: 2, md: 3 }, pt: { xs: 2, md: 3 } }} className="dashboard-header">
           <DashboardHeader />
         </Box>
       )}
@@ -811,274 +866,231 @@ export const DashboardPage = () => {
       <Box
         sx={{
           flex: 1,
-          display: 'flex',
-          gap: 2,
-          flexDirection: { xs: 'column', lg: 'row' },
           px: { xs: 2, md: 3 },
           pb: { xs: 2, md: 3 },
           pt: 2,
           overflow: 'hidden',
         }}
       >
-        {/* Colonne gauche : Timeline des étapes */}
-        {showLeftPanel && (
-          <Box sx={{ 
-            flex: { xs: '1', lg: '0 0 300px' }, // Largeur fixe au lieu de %
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: 0, // Important pour le overflow
-          }}>
-            <Paper
-              sx={{
-                p: 2,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-              }}
-            >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" fontWeight="bold">
-                  🎯 Étapes du Processus
-                </Typography>
-                <Tooltip title="Masquer le processus">
-                  <IconButton
-                    size="small"
-                    onClick={() => setShowLeftPanel(false)}
-                    sx={{ ml: 1 }}
-                    aria-label="Masquer le panneau des étapes du processus"
-                  >
-                    <ChevronLeftIcon />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-              
-              <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
-                {currentProcess && (
-                  <ProcessTimeline 
-                    steps={currentProcess.steps} 
-                    currentStepIndex={currentProcess.currentStepIndex}
-                  />
-                )}
-              </Box>
-            </Paper>
-          </Box>
-        )}
-
-        {/* Bouton pour réafficher le panneau gauche quand masqué */}
-        {!showLeftPanel && (
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Tooltip title="Afficher le processus">
-              <IconButton
-                onClick={() => setShowLeftPanel(true)}
-                sx={{
-                  bgcolor: 'primary.main',
-                  color: 'white',
-                  '&:hover': { bgcolor: 'primary.dark' },
-                  borderRadius: '0 8px 8px 0',
-                }}
-                aria-label="Afficher le panneau des étapes du processus"
+        <PanelGroup 
+          direction="horizontal"
+          autoSaveId="simplifia-dashboard-panels"
+          style={{ height: '100%' }}
+        >
+          {/* Panneau gauche : Timeline des étapes */}
+          {showLeftPanel && (
+            <>
+              <Panel 
+                defaultSize={25}
+                minSize={15}
+                maxSize={40}
+                id="timeline-panel"
+                order={1}
               >
-                <ChevronRightIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        )}
-
-        {/* Colonne centrale : Activity Logs + Decision History avec Tabs */}
-        {showCenterPanel && (
-          <Box sx={{ 
-            flex: { xs: '1', lg: '0 0 300px' }, // Largeur fixe au lieu de %
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: 0, // Important pour le overflow
-          }}>
-            <Paper
-              sx={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-              }}
-            >
-              {/* Tabs avec bouton de fermeture */}
-              <Box sx={{ borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center' }}>
-                <Tabs 
-                  value={currentTab} 
-                  onChange={(_, newValue) => setCurrentTab(newValue)}
-                  sx={{ flex: 1 }}
-                  aria-label="Onglets Journal et Décisions"
-                >
-                  <Tab label="📋 Journal" aria-label="Afficher le journal d'activité" />
-                  <Tab label="⚖️ Décisions" aria-label="Afficher l'historique des décisions" />
-                </Tabs>
-                <Tooltip title="Masquer les logs">
-                  <IconButton
-                    size="small"
-                    onClick={() => setShowCenterPanel(false)}
-                    sx={{ mr: 1 }}
-                    aria-label="Masquer le panneau des logs et décisions"
+                <Box sx={{ height: '100%', pr: 1 }}>
+                  <Paper
+                    sx={{
+                      p: 2,
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                    }}
                   >
-                    <ChevronLeftIcon />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-
-              {/* Content */}
-              <Box sx={{ p: 2, flexGrow: 1, overflowY: 'auto' }}>
-                {currentTab === 0 ? (
-                  <ActivityLogList logs={activityLogs} />
-                ) : (
-                  <DecisionHistory 
-                    decisions={decisions} 
-                    onRevert={handleRevertDecision} 
-                  />
-                )}
-              </Box>
-            </Paper>
-          </Box>
-        )}
-
-        {/* Bouton pour réafficher le panneau central quand masqué */}
-        {!showCenterPanel && showLeftPanel && (
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Tooltip title="Afficher les logs">
-              <IconButton
-                onClick={() => setShowCenterPanel(true)}
-                sx={{
-                  bgcolor: 'primary.main',
-                  color: 'white',
-                  '&:hover': { bgcolor: 'primary.dark' },
-                  borderRadius: '0 8px 8px 0',
-                }}
-                aria-label="Afficher le panneau des logs et décisions"
-              >
-                <ChevronRightIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        )}
-
-        {/* Bouton pour réafficher le panneau central quand les deux sont masqués */}
-        {!showCenterPanel && !showLeftPanel && (
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Tooltip title="Afficher les logs">
-              <IconButton
-                onClick={() => setShowCenterPanel(true)}
-                sx={{
-                  bgcolor: 'primary.main',
-                  color: 'white',
-                  '&:hover': { bgcolor: 'primary.dark' },
-                  borderRadius: '0 8px 8px 0',
-                }}
-                aria-label="Afficher le panneau des logs et décisions"
-              >
-                <ChevronRightIcon />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        )}
-
-        {/* Colonne droite : Chat Interface */}
-        <Box sx={{ 
-          flex: 1, // Prend tout l'espace restant
-          display: 'flex',
-          flexDirection: 'column',
-          minWidth: 0, // Important pour le overflow
-        }}>
-          <Paper
-            sx={{
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            }}
-          >
-            <Box
-              sx={{
-                p: 2,
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexShrink: 0, // Ne se réduit pas
-              }}
-            >
-              <Typography variant="h6" fontWeight="bold">
-                💬 Conversation avec SimplifIA
-              </Typography>
-              
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <Tooltip title="Réinitialiser le chat pour voir les suggestions">
-                  <IconButton 
-                    onClick={handleResetChat}
-                    disabled={chatMessages.length === 0}
-                    color="primary"
-                    size="small"
-                    aria-label="Réinitialiser le chat"
-                  >
-                    <RefreshIcon />
-                  </IconButton>
-                </Tooltip>
-                
-                {/* Boutons de test DEV - Mode Démo */}
-                {!useRealtime && (
-                  <>
-                    <Tooltip title="🧪 DEV: Tester Modal Validation">
-                      <IconButton 
-                        onClick={() => setValidationModalOpen(true)}
-                        color="secondary"
-                        size="small"
-                        aria-label="Tester la modal de validation"
-                        sx={{ 
-                          border: '1px dashed',
-                          borderColor: 'secondary.main',
-                        }}
-                      >
-                        <Typography variant="caption" fontWeight="bold">V</Typography>
-                      </IconButton>
-                    </Tooltip>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                      <Typography variant="h6" fontWeight="bold">
+                        🎯 Étapes du Processus
+                      </Typography>
+                      <Tooltip title="Masquer le processus">
+                        <IconButton
+                          size="small"
+                          onClick={() => setShowLeftPanel(false)}
+                          sx={{ ml: 1 }}
+                          aria-label="Masquer le panneau des étapes du processus"
+                        >
+                          <ChevronLeftIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                     
-                    <Tooltip title="🧪 DEV: Tester Action Critique">
-                      <IconButton 
-                        onClick={() => {
-                          setPendingCriticalAction({
-                            id: 'test-critical',
-                            title: 'Paiement des frais administratifs',
-                            description: 'Autoriser le prélèvement de 35€ pour les frais de dossier',
-                            riskLevel: 'high',
-                            consequences: [
-                              'Un prélèvement de 35€ sera effectué immédiatement',
-                              'Cette action est irréversible',
-                            ],
-                            isReversible: false,
-                            url: 'https://www.service-public.fr/particuliers/vosdroits/R16024',
-                          });
-                          setCriticalActionModalOpen(true);
-                        }}
-                        color="error"
-                        size="small"
-                        aria-label="Tester l'action critique"
-                        sx={{ 
-                          border: '1px dashed',
-                          borderColor: 'error.main',
-                        }}
+                    <Box sx={{ flexGrow: 1, overflowY: 'auto' }} className="process-timeline">
+                      {currentProcess && (
+                        <ProcessTimeline 
+                          steps={currentProcess.steps} 
+                          currentStepIndex={currentProcess.currentStepIndex}
+                        />
+                      )}
+                    </Box>
+                  </Paper>
+                </Box>
+              </Panel>
+
+              <PanelResizeHandle />
+            </>
+          )}
+
+          {/* Bouton pour réafficher le panneau gauche quand masqué */}
+          {!showLeftPanel && (
+            <Box sx={{ display: 'flex', alignItems: 'center', position: 'absolute', left: 16, top: '50%', zIndex: 10 }}>
+              <Tooltip title="Afficher le processus">
+                <IconButton
+                  onClick={() => setShowLeftPanel(true)}
+                  sx={{
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    '&:hover': { bgcolor: 'primary.dark' },
+                    borderRadius: '0 8px 8px 0',
+                  }}
+                  aria-label="Afficher le panneau des étapes du processus"
+                >
+                  <ChevronRightIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
+
+          {/* Panneau central : Activity Logs + Decision History avec Tabs */}
+          {showCenterPanel && (
+            <>
+              <Panel 
+                defaultSize={30}
+                minSize={20}
+                maxSize={50}
+                id="logs-panel"
+                order={2}
+              >
+                <Box sx={{ height: '100%', px: 1 }}>
+                  <Paper
+                    sx={{
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {/* Tabs avec bouton de fermeture */}
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center' }} className="activity-tabs">
+                      <Tabs 
+                        value={currentTab} 
+                        onChange={(_, newValue) => setCurrentTab(newValue)}
+                        sx={{ flex: 1 }}
+                        aria-label="Onglets Journal, Décisions et Statistiques"
+                        variant="scrollable"
+                        scrollButtons="auto"
                       >
-                        <Typography variant="caption" fontWeight="bold">C</Typography>
+                        <Tab label="📋 Journal" aria-label="Afficher le journal d'activité" />
+                        <Tab label="⚖️ Décisions" aria-label="Afficher l'historique des décisions" />
+                        <Tab label="📊 Statistiques" aria-label="Afficher les statistiques et analyses" />
+                      </Tabs>
+                      <Tooltip title="Masquer les logs">
+                        <IconButton
+                          size="small"
+                          onClick={() => setShowCenterPanel(false)}
+                          sx={{ mr: 1 }}
+                          aria-label="Masquer le panneau des logs et décisions"
+                        >
+                          <ChevronLeftIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+
+                    {/* Content */}
+                    <Box sx={{ p: 2, flexGrow: 1, overflowY: 'auto' }}>
+                      {currentTab === 0 ? (
+                        <ActivityLogList logs={activityLogs} />
+                      ) : currentTab === 1 ? (
+                        <DecisionHistory 
+                          decisions={decisions} 
+                          onRevert={handleRevertDecision} 
+                        />
+                      ) : (
+                        <Suspense fallback={<Box sx={{ p: 3 }}><LinearProgress /></Box>}>
+                          <StatsPanel />
+                        </Suspense>
+                      )}
+                    </Box>
+                  </Paper>
+                </Box>
+              </Panel>
+
+              <PanelResizeHandle />
+            </>
+          )}
+
+          {/* Boutons pour réafficher le panneau central quand masqué */}
+          {!showCenterPanel && (
+            <Box sx={{ display: 'flex', alignItems: 'center', position: 'absolute', left: showLeftPanel ? '25%' : 16, top: '50%', zIndex: 10 }}>
+              <Tooltip title="Afficher les logs">
+                <IconButton
+                  onClick={() => setShowCenterPanel(true)}
+                  sx={{
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    '&:hover': { bgcolor: 'primary.dark' },
+                    borderRadius: '0 8px 8px 0',
+                  }}
+                  aria-label="Afficher le panneau des logs et décisions"
+                >
+                  <ChevronRightIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
+
+          {/* Panneau droit : Chat Interface (toujours visible) */}
+          <Panel 
+            defaultSize={45}
+            minSize={30}
+            id="chat-panel"
+            order={3}
+          >
+            <Box sx={{ height: '100%', pl: 1 }}>
+              <Paper
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                }}
+              >
+                <Box
+                  sx={{
+                    p: 2,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Typography variant="h6" fontWeight="bold">
+                    💬 Conversation avec SimplifIA
+                  </Typography>
+                  
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Tooltip title="Réinitialiser le chat pour voir les suggestions">
+                      <IconButton 
+                        onClick={handleResetChat}
+                        disabled={chatMessages.length === 0}
+                        color="primary"
+                        size="small"
+                        aria-label="Réinitialiser le chat"
+                      >
+                        <RefreshIcon />
                       </IconButton>
                     </Tooltip>
-                  </>
-                )}
-              </Box>
-            </Box>
+                  </Box>
+                </Box>
 
-            {/* Zone de chat */}
-            <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
-              <ChatInterface />
+                {/* Zone de chat */}
+                <Box sx={{ flexGrow: 1, overflow: 'hidden' }} className="chat-interface">
+                  <ChatInterface />
+                </Box>
+              </Paper>
             </Box>
-          </Paper>
-        </Box>
+          </Panel>
+        </PanelGroup>
       </Box>
       )}
 
@@ -1108,6 +1120,46 @@ export const DashboardPage = () => {
         processId={currentProcess?.id}
         onTakeover={handleManualTakeover}
       />
+
+      {/* Célébration Easter Egg (Phase 5 DEV2) */}
+      <Suspense fallback={null}>
+        <CelebrationOverlay
+          isVisible={showCelebration}
+          onComplete={() => setShowCelebration(false)}
+        />
+      </Suspense>
+
+      {/* Mode Démonstration (Phase 5 DEV2) */}
+      <Suspense fallback={null}>
+        <DemoModeControls
+        isActive={isDemoMode}
+        onStart={() => {
+          setIsDemoMode(true);
+          notifications.info('🎬 Mode démonstration activé ! Observez l\'agent en action.');
+          
+          // Ajouter un log système
+          addActivityLog({
+            id: `demo-start-${Date.now()}`,
+            processId: currentProcess?.id || 'demo',
+            timestamp: new Date(),
+            type: 'info',
+            message: '🎬 Mode démonstration activé - Simulation automatique en cours',
+          });
+        }}
+        onStop={() => {
+          setIsDemoMode(false);
+          notifications.success('Mode démonstration arrêté');
+          
+          addActivityLog({
+            id: `demo-stop-${Date.now()}`,
+            processId: currentProcess?.id || 'demo',
+            timestamp: new Date(),
+            type: 'info',
+            message: '⏹️ Mode démonstration arrêté',
+          });
+        }}
+      />
+      </Suspense>
     </Box>
     </AnimatedPage>
   );
