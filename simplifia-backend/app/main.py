@@ -15,6 +15,18 @@ def create_app():
     # Register blueprints
     app.register_blueprint(analyze_bp)
 
+    # Root route
+    @app.route("/", methods=["GET"])
+    def root():
+        return jsonify({
+            "message": "Welcome to SimplifIA Backend API",
+            "version": "1.0",
+            "endpoints": {
+                "health": "/health",
+                "analyze": "/api/v1/analyze"
+            }
+        }), 200
+    
     # Health check route (optional but useful for debugging)
     @app.route("/health", methods=["GET"])
     def health():
