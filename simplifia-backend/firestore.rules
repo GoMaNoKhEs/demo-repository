@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Fonctions helper
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Collection users
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Collection processes
+    match /processes/{processId} {
+      allow read: if isAuthenticated() &&
+                     resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() &&
+                      request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() &&
+                               resource.data.userId == request.auth.uid;
+
+      // Sous-collection chat_messages
+      match /chat_messages/{messageId} {
+        allow read, create: if isAuthenticated() &&
+                             get(/databases/$(database)/documents/processes/$(processId)).data.userId == request.auth.uid;
+      }
+
+      // Sous-collection activity_logs
+      match /activity_logs/{logId} {
+        allow read, create: if isAuthenticated() &&
+                             get(/databases/$(database)/documents/processes/$(processId)).data.userId == request.auth.uid;
+      }
+    }
+
+    // Collection config (lecture seule)
+    match /config/{configId} {
+      allow read: if isAuthenticated();
+    }
+
+    // Deny all par défaut
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
