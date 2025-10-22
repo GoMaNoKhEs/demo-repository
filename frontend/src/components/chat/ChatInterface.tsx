@@ -6,8 +6,13 @@ import { QuickSuggestions } from './QuickSuggestions';
 import { TypingIndicator } from './TypingIndicator';
 import { useAppStore } from '../../stores/useAppStore';
 import { useNotifications } from '../../hooks/useNotifications';
+import { sendChatMessage } from '../../services/firestore';
 
-export const ChatInterface = () => {
+interface ChatInterfaceProps {
+  sessionId?: string;
+}
+
+export const ChatInterface = ({ sessionId }: ChatInterfaceProps) => {
   const [input, setInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -31,25 +36,48 @@ export const ChatInterface = () => {
     }
   }, [chatMessages]);
 
-  const handleSend = (messageText?: string) => {
+  const handleSend = async (messageText?: string) => {
     const textToSend = messageText || input;
     if (!textToSend.trim()) return;
 
-    // Ajouter le message de l'utilisateur
-    addChatMessage({
-      id: Date.now().toString(),
-      role: 'user',
-      content: textToSend,
-      timestamp: new Date(),
-    });
+    // Si pas de sessionId, ajouter seulement en local (mode démo)
+    if (!sessionId) {
+      addChatMessage({
+        id: Date.now().toString(),
+        role: 'user',
+        content: textToSend,
+        timestamp: new Date(),
+      });
+      setInput('');
+      setShowSuggestions(false);
+      notifications.success('Message envoyé (mode démo)');
+      return;
+    }
 
-    setInput('');
-    setShowSuggestions(false);
-
-    // Notification de succès
-    notifications.success('Message envoyé à l\'agent');
-
-    // TODO: Envoyer au backend
+    try {
+      // Ajouter le message immédiatement dans l'UI
+      const userMessage = {
+        id: Date.now().toString(),
+        role: 'user' as const,
+        content: textToSend,
+        timestamp: new Date(),
+      };
+      addChatMessage(userMessage);
+      
+      // Envoyer vers Firestore → Déclenche le backend
+      await sendChatMessage(sessionId, textToSend, 'user');
+      
+      setInput('');
+      setShowSuggestions(false);
+      
+      // Notification de succès
+      notifications.success('Message envoyé à l\'agent');
+      
+      console.log('[Chat] Message envoyé vers Firestore:', { sessionId, content: textToSend });
+    } catch (error) {
+      console.error('[Chat] Erreur envoi message:', error);
+      notifications.error('Erreur lors de l\'envoi du message');
+    }
   };
 
   const handleSuggestionSelect = (_value: string, text: string) => {

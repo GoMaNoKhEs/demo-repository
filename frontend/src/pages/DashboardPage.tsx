@@ -9,6 +9,8 @@ import {
   Chat as ChatIcon,
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { auth } from '../config/firebase';
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
 import { ValidationModal } from '../components/dashboard/ValidationModal';
 import { ActivityLogList } from '../components/dashboard/ActivityLogList';
@@ -28,7 +30,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { useKeyboardNavigation, useFocusVisible } from '../hooks/useKeyboardNavigation';
 import { mockProcess, mockActivityLogs } from '../mocks/data';
-import { subscribeToProcess, subscribeToActivityLogs } from '../services/realtime';
+import { subscribeToProcess, subscribeToActivityLogs, subscribeToMessages } from '../services/realtime';
 
 // Lazy load des composants lourds pour optimiser le bundle
 const StatsPanel = lazy(() => import('../components/dashboard/StatsPanel').then(m => ({ default: m.StatsPanel })));
@@ -45,18 +47,20 @@ export const DashboardPage = () => {
     addChatMessage,
     clearChatMessages,
     chatMessages,
+    setChatMessages,
   } = useAppStore();
   
   const notifications = useNotifications();
   const [validationModalOpen, setValidationModalOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   
   // États pour la gestion du temps réel
   const [isLoading, setIsLoading] = useState(true);
   const [connectionError, setConnectionError] = useState<Error | null>(null);
-  const [useRealtime] = useState(false); // Mode démo par défaut (changez à true pour tester Firestore)
+  const [useRealtime] = useState(true); // Mode Firestore activé pour la production
   
-  // ID de session (devrait venir de l'auth en prod)
-  const sessionId = 'demo-session-123';
+  // ID de session basé sur l'utilisateur authentifié
+  const sessionId = user ? `session-${user.uid}` : 'demo-session-123';
 
   // États pour les nouveaux composants Phase 3 DEV2
   const [criticalActionModalOpen, setCriticalActionModalOpen] = useState(false);
@@ -151,11 +155,16 @@ export const DashboardPage = () => {
     },
   ];
 
-  // Initialiser les mock decisions
+  // Initialiser les decisions seulement en mode démo
   useEffect(() => {
-    setDecisions(mockDecisions);
+    if (isDemoMode) {
+      setDecisions(mockDecisions);
+    } else {
+      // Nouveau utilisateur authentifié : pas de décisions à afficher
+      setDecisions([]);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isDemoMode]);
 
   // Fonction pour charger les données mockées
   const loadMockData = useCallback(() => {
@@ -223,21 +232,45 @@ export const DashboardPage = () => {
     };
   }, [sessionId, setCurrentProcess, setActivityLogs, notifications]);
 
-  // Effet pour gérer le mode (mock vs realtime) - UNIQUEMENT au montage
+  // Effet pour gérer le mode (mock vs realtime) - Pour nouveaux utilisateurs
   useEffect(() => {
-    if (useRealtime) {
-      const cleanup = connectRealtime();
-      return cleanup;
-    } else {
+    if (!useRealtime) {
       // Mode mock : charger les données de démo
       setTimeout(() => {
         setCurrentProcess(mockProcess);
         setActivityLogs(mockActivityLogs);
         setIsLoading(false);
       }, 1000);
+    } else if (user) {
+      console.log('[Dashboard] User authenticated:', user.email);
+      console.log('[Dashboard] Ready for conversation - listening to messages');
+      
+      // Nouvel utilisateur : écouter les messages en temps réel
+      const unsubscribeMessages = subscribeToMessages(
+        sessionId,
+        (messages) => {
+          console.log('[Dashboard] Messages received:', messages.length);
+          // Mettre à jour les messages dans le store
+          setChatMessages(messages);
+        },
+        (error) => {
+          console.error('[Dashboard] Messages subscription error:', error);
+        }
+      );
+      
+      setIsLoading(false);
+      
+      // Cleanup
+      return () => {
+        console.log('[Dashboard] Unsubscribing from messages');
+        unsubscribeMessages();
+      };
+    } else {
+      console.log('[Dashboard] Waiting for authentication...');
+      setIsLoading(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Exécuter UNIQUEMENT au montage du composant
+  }, [user]); // Réagir aux changements d'utilisateur
 
   // Fermer les drawers mobiles automatiquement quand on resize vers desktop
   useEffect(() => {
@@ -274,6 +307,16 @@ export const DashboardPage = () => {
   //   });
   //   return () => unsubscribe();
   // }, []);
+
+  // Écouter l'état d'authentification
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      console.log('[Dashboard] Auth state changed:', currentUser?.email || 'Not authenticated');
+      setUser(currentUser);
+    });
+    
+    return unsubscribe;
+  }, []);
 
   // Détecter la completion de la mission pour la célébration
   useEffect(() => {
@@ -681,7 +724,7 @@ export const DashboardPage = () => {
               aria-labelledby="accordion-decisions-header"
             >
               <DecisionHistory
-                decisions={mockDecisions}
+                decisions={decisions}
                 onRevert={handleRevertDecision}
               />
             </AccordionDetails>
@@ -725,7 +768,7 @@ export const DashboardPage = () => {
 
           {/* Chat interface */}
           <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
-            <ChatInterface />
+            <ChatInterface sessionId={sessionId} />
           </Box>
         </Box>
       </Drawer>
@@ -1085,7 +1128,7 @@ export const DashboardPage = () => {
 
                 {/* Zone de chat */}
                 <Box sx={{ flexGrow: 1, overflow: 'hidden' }} className="chat-interface">
-                  <ChatInterface />
+                  <ChatInterface sessionId={sessionId} />
                 </Box>
               </Paper>
             </Box>

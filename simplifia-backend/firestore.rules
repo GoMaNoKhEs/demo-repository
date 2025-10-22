@@ -39,6 +39,18 @@ service cloud.firestore {
       }
     }
 
+    // Collection messages (pour le chat en temps réel)
+    match /messages/{messageId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() &&
+                               resource.data.sessionId != null;
+    }
+
+    // Collection activity_logs (globale)
+    match /activity_logs/{logId} {
+      allow read, create: if isAuthenticated();
+    }
+
     // Collection config (lecture seule)
     match /config/{configId} {
       allow read: if isAuthenticated();

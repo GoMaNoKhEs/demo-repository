@@ -9,10 +9,10 @@
       ]
     },
     {
-      "collectionGroup": "chat_messages",
-      "queryScope": "COLLECTION_GROUP",
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "processId", "order": "ASCENDING" },
+        { "fieldPath": "sessionId", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "ASCENDING" }
       ]
     }
