@@ -19,6 +19,7 @@ interface AppState {
   // Chat Messages
   chatMessages: ChatMessage[];
   addChatMessage: (message: ChatMessage) => void;
+  setChatMessages: (messages: ChatMessage[]) => void;
   clearChatMessages: () => void;
   
   // UI State
@@ -51,6 +52,7 @@ export const useAppStore = create<AppState>((set) => ({
   addChatMessage: (message) => set((state) => ({
     chatMessages: [...state.chatMessages, message]
   })),
+  setChatMessages: (messages: ChatMessage[]) => set({ chatMessages: messages }),
   clearChatMessages: () => set({ chatMessages: [] }),
   
   // UI State

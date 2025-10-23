@@ -47,3 +47,27 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+
+# 🐍 Python / Flask backend
+venv/
+ENV/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+instance/
+migrations/
+*.egg-info/
+.pytest_cache/
+.cache/
+
+# 📦 Virtual environment config
+.venv/
+venv.bak/
+
+# 🧠 Cloud & Secrets
+firebase-admin-key.json
+*.key.json
