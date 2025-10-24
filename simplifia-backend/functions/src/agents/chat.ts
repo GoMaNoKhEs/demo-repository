@@ -65,13 +65,24 @@ export class ChatAgent {
 
       // Forcer proposition après 8 messages
       if (messageCount >= 8 && !intentAnalysis.readyToStart) {
-        const response = `✅ J'ai collecté plusieurs informations sur votre demande.
+        // Construire message avec infos manquantes lisibles
+        const missingInfoText = intentAnalysis.missingInfo && intentAnalysis.missingInfo.length > 0
+          ? intentAnalysis.missingInfo.map((info: string) => `- ${info}`).join("\n")
+          : "quelques informations complémentaires";
 
-Résumé :
-${JSON.stringify(intentAnalysis.collectedInfo, null, 2)}
+        const collectedInfoText = Object.entries(intentAnalysis.collectedInfo || {})
+          .filter(([_, value]) => value !== null && value !== "")
+          .map(([key, value]) => `✓ ${key}: ${value}`)
+          .join("\n");
 
-Souhaitez-vous que je crée votre dossier maintenant ?
-(Répondez "oui" pour démarrer)`;
+        const response = `✅ D'accord, je vais vous aider avec votre ${intentAnalysis.demarche || "demande"} !
+
+${collectedInfoText ? `Informations collectées :\n${collectedInfoText}\n\n` : ""}J'ai encore besoin de :
+${missingInfoText}
+
+Pouvez-vous me donner ces informations ?
+
+Ou si vous avez déjà toutes les infos, répondez "oui" pour que je crée votre dossier maintenant.`;
 
         await this.addAgentResponse(sessionId, response);
         return;

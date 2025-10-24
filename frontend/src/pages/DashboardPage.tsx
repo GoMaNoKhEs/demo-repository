@@ -29,6 +29,7 @@ import { useAppStore } from '../stores/useAppStore';
 import { useNotifications } from '../hooks/useNotifications';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { useKeyboardNavigation, useFocusVisible } from '../hooks/useKeyboardNavigation';
+import { useSessionManager } from '../hooks/useSessionManager';
 import { mockProcess, mockActivityLogs } from '../mocks/data';
 import { subscribeToProcess, subscribeToActivityLogs, subscribeToMessages } from '../services/realtime';
 
@@ -45,7 +46,6 @@ export const DashboardPage = () => {
     setActivityLogs,
     addActivityLog,
     addChatMessage,
-    clearChatMessages,
     chatMessages,
     setChatMessages,
   } = useAppStore();
@@ -59,8 +59,15 @@ export const DashboardPage = () => {
   const [connectionError, setConnectionError] = useState<Error | null>(null);
   const [useRealtime] = useState(true); // Mode Firestore activé pour la production
   
-  // ID de session basé sur l'utilisateur authentifié
-  const sessionId = user ? `session-${user.uid}` : 'demo-session-123';
+  // Gestion multi-sessions avec sessionId dynamique
+  const {
+    currentSessionId,
+    createNewSession,
+    // sessions, loadSession, deleteSession, updateTitleIfNeeded - à utiliser plus tard pour UI liste
+  } = useSessionManager(user?.uid);
+
+  // ID de session : utiliser currentSessionId du hook au lieu du sessionId fixe
+  const sessionId = currentSessionId || (user ? `session-${user.uid}` : 'demo-session-123');
 
   // États pour les nouveaux composants Phase 3 DEV2
   const [criticalActionModalOpen, setCriticalActionModalOpen] = useState(false);
@@ -241,11 +248,11 @@ export const DashboardPage = () => {
         setActivityLogs(mockActivityLogs);
         setIsLoading(false);
       }, 1000);
-    } else if (user) {
+    } else if (user && sessionId) {
       console.log('[Dashboard] User authenticated:', user.email);
-      console.log('[Dashboard] Ready for conversation - listening to messages');
+      console.log('[Dashboard] Listening to messages for session:', sessionId);
       
-      // Nouvel utilisateur : écouter les messages en temps réel
+      // Écouter les messages en temps réel pour cette session
       const unsubscribeMessages = subscribeToMessages(
         sessionId,
         (messages) => {
@@ -262,7 +269,7 @@ export const DashboardPage = () => {
       
       // Cleanup
       return () => {
-        console.log('[Dashboard] Unsubscribing from messages');
+        console.log('[Dashboard] Unsubscribing from messages for session:', sessionId);
         unsubscribeMessages();
       };
     } else {
@@ -270,7 +277,7 @@ export const DashboardPage = () => {
       setIsLoading(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]); // Réagir aux changements d'utilisateur
+  }, [user, sessionId]); // Réagir aux changements d'utilisateur ET de session
 
   // Fermer les drawers mobiles automatiquement quand on resize vers desktop
   useEffect(() => {
@@ -362,8 +369,10 @@ export const DashboardPage = () => {
   };
 
   const handleResetChat = () => {
-    clearChatMessages();
-    notifications.info('Chat réinitialisé - Les suggestions sont de retour !');
+    // Créer une nouvelle session avec sessionId unique
+    const newSessionId = createNewSession();
+    console.log('[Dashboard] New chat session created:', newSessionId);
+    notifications.info('Nouvelle conversation démarrée !');
   };
 
   const handleValidation = () => {
