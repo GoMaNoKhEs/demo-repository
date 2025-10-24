@@ -35,8 +35,9 @@ export const subscribeToProcess = (
         const process: Process = {
           id: doc.id,
           ...data,
-          createdAt: data.createdAt?.toDate(),
-          updatedAt: data.updatedAt?.toDate(),
+          // Gérer les timestamps qui peuvent être null avec serverTimestamp
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
           completedAt: data.completedAt?.toDate(),
         } as Process;
         
@@ -74,11 +75,15 @@ export const subscribeToActivityLogs = (
   return onSnapshot(
     q,
     (snapshot) => {
-      const logs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate(),
-      } as ActivityLog));
+      const logs = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // Gérer le cas où timestamp est null (serverTimestamp pas encore résolu)
+          timestamp: data.timestamp?.toDate() || new Date(),
+        } as ActivityLog;
+      });
       
       console.log('[Realtime] Activity logs updated:', logs.length, 'logs');
       callback(logs);
@@ -113,11 +118,15 @@ export const subscribeToMessages = (
   return onSnapshot(
     q,
     (snapshot) => {
-      const messages = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate(),
-      } as ChatMessage));
+      const messages = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // Gérer le cas où timestamp est null (serverTimestamp pas encore résolu)
+          timestamp: data.timestamp?.toDate() || new Date(),
+        } as ChatMessage;
+      });
       
       console.log('[Realtime] Messages updated:', messages.length, 'messages');
       callback(messages);

@@ -3,7 +3,7 @@ steps:
   - name: 'gcr.io/cloud-builders/npm'
     id: install_dependencies
     args: ['install']
-    dir: 'functions/api_trigger_agent'
+    dir: 'simplifia-backend/functions'
     
   # Étape 2 : Déploiement de la Cloud Function (Passerelle API)
   - name: 'gcr.io/cloud-builders/gcloud'

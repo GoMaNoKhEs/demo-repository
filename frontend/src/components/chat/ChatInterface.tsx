@@ -55,16 +55,8 @@ export const ChatInterface = ({ sessionId }: ChatInterfaceProps) => {
     }
 
     try {
-      // Ajouter le message immédiatement dans l'UI
-      const userMessage = {
-        id: Date.now().toString(),
-        role: 'user' as const,
-        content: textToSend,
-        timestamp: new Date(),
-      };
-      addChatMessage(userMessage);
-      
       // Envoyer vers Firestore → Déclenche le backend
+      // Le listener temps réel ajoutera automatiquement le message dans l'UI
       await sendChatMessage(sessionId, textToSend, 'user');
       
       setInput('');

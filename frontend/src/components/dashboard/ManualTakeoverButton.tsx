@@ -91,7 +91,7 @@ const ManualTakeoverButton: React.FC<ManualTakeoverButtonProps> = ({
               position: 'fixed',
               bottom: 24,
               right: 24,
-              zIndex: 1000,
+              zIndex: 1050, // Plus haut que le bouton démo (1000)
               boxShadow: 3,
               '&:hover': {
                 boxShadow: 6
