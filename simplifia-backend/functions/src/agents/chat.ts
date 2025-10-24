@@ -93,9 +93,18 @@ TOUJOURS finir par une question pour approfondir.`;
   /**
    * Générer une réponse de chat
    */
-  private async generateChatResponse(systemPrompt: string, userMessage: string): Promise<string> {
+  private async generateChatResponse(
+    systemPrompt: string,
+    userMessage: string
+  ): Promise<string> {
     try {
-      const prompt = `Message utilisateur: ${userMessage}
+      const prompt = `MESSAGE UTILISATEUR:
+${userMessage}
+
+INSTRUCTIONS:
+- Répondre de manière précise et méthodique
+- Poser les bonnes questions pour comprendre la situation exacte
+- Fournir des étapes concrètes et des informations pratiques
 
 Réponse:`;
 
@@ -105,7 +114,7 @@ Réponse:`;
 
       return response.trim() || "Je suis désolé, je n'ai pas pu générer une réponse appropriée.";
     } catch (error) {
-      console.error(` Error generating chat response: ${error}`);
+      console.error("Error generating chat response:", error);
       return "Je suis désolé, j'ai rencontré une erreur. Pouvez-vous reformuler votre question ?";
     }
   }
