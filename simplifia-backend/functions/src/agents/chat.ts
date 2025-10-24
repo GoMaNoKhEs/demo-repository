@@ -47,10 +47,48 @@ export class ChatAgent {
       // Analyser l'intention et la disponibilité à créer un processus
       const intentAnalysis = await this.analyzeIntentAndReadiness(conversationHistory, userMessage);
 
+      // Logs détaillés pour debug
+      console.log(`[ChatAgent] Intent Analysis for session ${sessionId}:`);
+      console.log(`  - demarche: ${intentAnalysis.demarche}`);
+      console.log(`  - readyToStart: ${intentAnalysis.readyToStart}`);
+      console.log(`  - userConfirmed: ${intentAnalysis.userConfirmed}`);
+      console.log(`  - confidence: ${intentAnalysis.confidence}`);
+      console.log(`  - missingInfo: ${JSON.stringify(intentAnalysis.missingInfo)}`);
+      console.log(`  - collectedInfo: ${JSON.stringify(intentAnalysis.collectedInfo)}`);
+
       // Si l'utilisateur est prêt et confirme (détecté par l'IA), créer le processus
       if (intentAnalysis.readyToStart && intentAnalysis.userConfirmed && intentAnalysis.confidence > 0.7) {
+        console.log(`[ChatAgent] Creating process for session ${sessionId}`);
         await this.createProcessFromConversation(sessionId, intentAnalysis);
         return; // Fin de la conversation
+      }
+
+      // Si prêt mais pas encore confirmé → demander confirmation explicite
+      if (intentAnalysis.readyToStart && !intentAnalysis.userConfirmed && intentAnalysis.confidence > 0.7) {
+        console.log(`[ChatAgent] Ready but not confirmed - asking for confirmation`);
+        const collectedInfoSummary = Object.entries(intentAnalysis.collectedInfo || {})
+          .filter(([_, value]) => value !== null && value !== "")
+          .map(([key, value]) => `✓ ${this.formatFieldName(key)}: ${value}`)
+          .join("\n");
+
+        const confirmationPrompt = `✅ Parfait ! J'ai toutes les informations nécessaires pour votre ${intentAnalysis.demarche}.
+
+📋 **Récapitulatif :**
+${collectedInfoSummary}
+
+🚀 **SimplifIA va maintenant s'occuper de tout :**
+- Connexion automatique au site ${this.getOrganismForDemarche(intentAnalysis.demarche)}
+- Remplissage automatique du formulaire
+- Soumission de votre dossier
+- Suivi en temps réel de l'avancement
+
+⏱️ **Temps estimé :** 2-3 minutes (au lieu de 45 minutes manuellement)
+
+**Souhaitez-vous que je crée votre dossier maintenant ?**
+(Répondez "oui" pour démarrer le processus automatique)`;
+
+        await this.addAgentResponse(sessionId, confirmationPrompt);
+        return;
       }
 
       // Compter les messages réels depuis Firestore (limite à 4 échanges = 8 messages)
@@ -357,12 +395,19 @@ Critères pour readyToStart = true:
 - L'utilisateur semble avoir répondu aux questions principales
 
 Critères pour userConfirmed = true:
-- L'utilisateur confirme explicitement vouloir créer le dossier
-- Expressions: "oui", "d'accord", "vas-y", "lance", "je veux", etc.
-- Attention aux "oui mais..." ou hésitations → false`;
+- L'utilisateur confirme EXPLICITEMENT vouloir créer le dossier
+- Expressions OUI: "oui", "ok", "d'accord", "vas-y", "lance", "je veux", "crée", "démarre", "go", "c'est bon"
+- Expressions NON (hésitations): "oui mais...", "peut-être", "je sais pas", "attends"
+- IMPORTANT: Si l'utilisateur dit "lance le processus" ou "fais-le" → userConfirmed = TRUE
+
+EXEMPLES:
+- "Oui je veux créer mon dossier" → userConfirmed = true
+- "Lance le processus toi-même" → userConfirmed = true  
+- "Vas-y crée le dossier" → userConfirmed = true
+- "Je pense mais j'hésite" → userConfirmed = false`;
 
       const response = await this.vertexAI.generateResponse("CHAT", prompt, {
-        temperature: 0.3,
+        temperature: 0.2, // Baissé pour plus de déterminisme
       });
 
       const cleanedResponse = response.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
@@ -464,31 +509,29 @@ Critères pour userConfirmed = true:
     sessionId: string,
     intentAnalysis: any
   ): Promise<void> {
-    const prompt = `Tu viens de créer un dossier pour une démarche administrative.
+    const organism = this.getOrganismForDemarche(intentAnalysis.demarche);
+    
+    const confirmationMessage = `🎉 **Félicitations ! Votre dossier ${intentAnalysis.demarche} a été créé avec succès.**
 
-DÉMARCHE: ${intentAnalysis.demarche}
-INFORMATIONS COLLECTÉES: ${JSON.stringify(intentAnalysis.collectedInfo, null, 2)}
+✅ **SimplifIA s'occupe de tout pour vous :**
 
-Génère un message de confirmation chaleureux et informatif qui inclut:
-1. Félicitations pour la création du dossier
-2. Liste PRÉCISE des documents nécessaires (selon tes connaissances à jour)
-3. Délai estimé RÉALISTE (selon tes connaissances actuelles)
-4. Prochaines étapes claires
-5. Un conseil pratique spécifique
+1️⃣ **Connexion automatique** au site ${organism}
+2️⃣ **Remplissage automatique** du formulaire avec vos informations
+3️⃣ **Soumission sécurisée** de votre dossier
+4️⃣ **Suivi en temps réel** de l'avancement
 
-IMPORTANT:
-- Utilise tes connaissances à jour sur les démarches administratives françaises
-- Sois précis sur les documents (pas de liste générique)
-- Donne des délais réalistes actuels
-- Personnalise selon les infos de l'utilisateur
+⏱️ **Temps estimé :** 2-3 minutes (au lieu de 45 minutes manuellement)
 
-Message:`;
+📊 **Vous pouvez suivre la progression en direct :**
+- Chaque étape s'affiche en temps réel sur votre tableau de bord
+- Vous serez notifié à chaque validation
+- Un récapitulatif complet vous sera envoyé à la fin
 
-    const confirmationMessage = await this.vertexAI.generateResponse("CHAT", prompt, {
-      temperature: 0.4,
-    });
+🚀 **Le processus démarre maintenant automatiquement...**
 
-    await this.addAgentResponse(sessionId, confirmationMessage.trim());
+_Vous n'avez rien à faire, SimplifIA gère toute la démarche administrative pour vous !_`;
+
+    await this.addAgentResponse(sessionId, confirmationMessage);
   }
 
   /**
@@ -508,5 +551,47 @@ Message:`;
         suggestedActions: ["Continuer"],
       },
     });
+  }
+
+  /**
+   * Formater le nom d'un champ pour affichage utilisateur
+   */
+  private formatFieldName(fieldName: string): string {
+    const fieldNames: Record<string, string> = {
+      situation: "Situation",
+      logement: "Logement",
+      revenus: "Revenus",
+      ville: "Ville",
+      statut: "Statut",
+      montant: "Montant",
+      etablissement: "Établissement",
+      garant: "Garant",
+    };
+    return fieldNames[fieldName] || fieldName;
+  }
+
+  /**
+   * Obtenir le nom de l'organisme pour une démarche
+   */
+  private getOrganismForDemarche(demarche: string): string {
+    const lowerDemarche = demarche.toLowerCase();
+    
+    if (lowerDemarche.includes("apl") || lowerDemarche.includes("caf") || lowerDemarche.includes("rsa")) {
+      return "CAF (Caisse d'Allocations Familiales)";
+    }
+    if (lowerDemarche.includes("passeport") || lowerDemarche.includes("carte d'identité") || lowerDemarche.includes("cni")) {
+      return "ANTS (Agence Nationale des Titres Sécurisés)";
+    }
+    if (lowerDemarche.includes("impôt") || lowerDemarche.includes("taxe")) {
+      return "Impots.gouv.fr";
+    }
+    if (lowerDemarche.includes("sécurité sociale") || lowerDemarche.includes("ameli")) {
+      return "Ameli (Sécurité Sociale)";
+    }
+    if (lowerDemarche.includes("pole emploi") || lowerDemarche.includes("chômage")) {
+      return "Pôle Emploi";
+    }
+    
+    return "l'organisme administratif concerné";
   }
 }
