@@ -10,9 +10,10 @@ import { sendChatMessage } from '../../services/firestore';
 
 interface ChatInterfaceProps {
   sessionId?: string;
+  userId?: string;
 }
 
-export const ChatInterface = ({ sessionId }: ChatInterfaceProps) => {
+export const ChatInterface = ({ sessionId, userId }: ChatInterfaceProps) => {
   const [input, setInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -57,7 +58,7 @@ export const ChatInterface = ({ sessionId }: ChatInterfaceProps) => {
     try {
       // Envoyer vers Firestore → Déclenche le backend
       // Le listener temps réel ajoutera automatiquement le message dans l'UI
-      await sendChatMessage(sessionId, textToSend, 'user');
+      await sendChatMessage(sessionId, textToSend, 'user', userId);
       
       setInput('');
       setShowSuggestions(false);
@@ -65,7 +66,7 @@ export const ChatInterface = ({ sessionId }: ChatInterfaceProps) => {
       // Notification de succès
       notifications.success('Message envoyé à l\'agent');
       
-      console.log('[Chat] Message envoyé vers Firestore:', { sessionId, content: textToSend });
+      console.log('[Chat] Message envoyé vers Firestore:', { sessionId, userId, content: textToSend });
     } catch (error) {
       console.error('[Chat] Erreur envoi message:', error);
       notifications.error('Erreur lors de l\'envoi du message');

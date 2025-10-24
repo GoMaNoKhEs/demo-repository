@@ -19,15 +19,17 @@ import { db } from '../config/firebase';
 export const sendChatMessage = async (
   sessionId: string,
   content: string,
-  role: 'user' | 'agent' = 'user'
+  role: 'user' | 'agent' = 'user',
+  userId?: string
 ): Promise<string> => {
   try {
-    console.log('[FirebaseWriter] Envoi d\'un message:', { sessionId, role, content: content.substring(0, 50) + '...' });
+    console.log('[FirebaseWriter] Envoi d\'un message:', { sessionId, role, userId, content: content.substring(0, 50) + '...' });
     
     const messageData = {
       sessionId,
       role,
       content,
+      userId: userId || 'anonymous', // Utilise userId passé ou 'anonymous' par défaut
       timestamp: serverTimestamp(),
       metadata: {
         isTyping: false,

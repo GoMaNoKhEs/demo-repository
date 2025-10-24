@@ -768,7 +768,7 @@ export const DashboardPage = () => {
 
           {/* Chat interface */}
           <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
-            <ChatInterface sessionId={sessionId} />
+            <ChatInterface sessionId={sessionId} userId={user?.uid} />
           </Box>
         </Box>
       </Drawer>
