@@ -173,7 +173,7 @@ export class NavigatorAgent {
   ): Promise<void> {
     try {
       await this.firestore
-        .collection("processus")
+        .collection("processes")
         .doc(processId)
         .update({
           externalReference: numeroDossier,

@@ -21,7 +21,7 @@ async function testFormMapping() {
   const processId = `test-mapping-${Date.now()}`;
 
   // Créer document processus
-  await admin.firestore().collection("processus").doc(processId).set({
+  await admin.firestore().collection("processes").doc(processId).set({
     userId: "user-test-mapping",
     typeProcessus: "APL",
     status: "in_progress",
@@ -92,7 +92,7 @@ async function testNavigatorCAFSuccess() {
   const processId = `test-process-${Date.now()}`;
 
   // ✅ CRÉER le document processus AVANT navigation
-  await admin.firestore().collection("processus").doc(processId).set({
+  await admin.firestore().collection("processes").doc(processId).set({
     userId: "user-test-caf",
     typeProcessus: "APL",
     status: "in_progress",
@@ -149,7 +149,7 @@ async function testNavigatorANTSSuccess() {
   const processId = `test-process-${Date.now()}`;
 
   // ✅ CRÉER le document processus AVANT navigation
-  await admin.firestore().collection("processus").doc(processId).set({
+  await admin.firestore().collection("processes").doc(processId).set({
     userId: "user-test-ants",
     typeProcessus: "PASSEPORT",
     status: "in_progress",
@@ -200,7 +200,7 @@ async function testNavigatorPoleEmploiSuccess() {
   const processId = `test-process-${Date.now()}`;
 
   // ✅ CRÉER le document processus AVANT navigation
-  await admin.firestore().collection("processus").doc(processId).set({
+  await admin.firestore().collection("processes").doc(processId).set({
     userId: "user-test-pe",
     typeProcessus: "CHOMAGE",
     status: "in_progress",
@@ -251,7 +251,7 @@ async function testNavigatorURSSAFSuccess() {
   const processId = `test-process-${Date.now()}`;
 
   // ✅ CRÉER le document processus AVANT navigation
-  await admin.firestore().collection("processus").doc(processId).set({
+  await admin.firestore().collection("processes").doc(processId).set({
     userId: "user-test-urssaf",
     typeProcessus: "AUTO_ENTREPRENEUR",
     status: "in_progress",
@@ -309,7 +309,7 @@ async function testNavigatorCAFError() {
   const processId = `test-process-${Date.now()}`;
 
   // ✅ CRÉER le document processus AVANT navigation
-  await admin.firestore().collection("processus").doc(processId).set({
+  await admin.firestore().collection("processes").doc(processId).set({
     userId: "user-test-caf-error",
     typeProcessus: "APL",
     status: "in_progress",
