@@ -53,8 +53,15 @@ export class ChatAgent {
         return; // Fin de la conversation
       }
 
-      // Compter les messages (limite à 4 échanges = 8 messages)
-      const messageCount = conversationHistory.split("\n").filter((l) => l.trim()).length;
+      // Compter les messages réels depuis Firestore (limite à 4 échanges = 8 messages)
+      const messagesSnapshot = await this.db
+        .collection("messages")
+        .where("sessionId", "==", sessionId)
+        .get();
+      
+      // +1 pour inclure le message utilisateur actuel (pas encore sauvegardé dans messages)
+      // +1 pour le message agent qu'on va créer
+      const messageCount = messagesSnapshot.size + 2;
 
       // Forcer proposition après 8 messages
       if (messageCount >= 8 && !intentAnalysis.readyToStart) {
@@ -101,11 +108,13 @@ Souhaitez-vous que je crée votre dossier maintenant ?
 Tu es précis, méthodique et tu poses les bonnes questions.
 
 RÈGLES ABSOLUES :
-1. TOUJOURS poser des questions précises pour comprendre la situation exacte
-2. JAMAIS de réponses génériques comme "rendez-vous sur le site" 
-3. IDENTIFIER précisément l'aide/démarche demandée
-4. LISTER les documents exacts nécessaires
-5. EXPLIQUER les étapes concrètes à suivre
+1. MAXIMUM 2-3 questions à la fois (éviter la surcharge cognitive)
+2. Après 4 échanges (8 messages total), TOUJOURS proposer de créer le dossier
+3. TOUJOURS poser des questions précises pour comprendre la situation exacte
+4. JAMAIS de réponses génériques comme "rendez-vous sur le site" 
+5. IDENTIFIER précisément l'aide/démarche demandée
+6. LISTER les documents exacts nécessaires
+7. EXPLIQUER les étapes concrètes à suivre
 
  EXEMPLES PRÉCIS :
 
