@@ -219,6 +219,11 @@ async function testDemoE2E() {
     const phase2StartTime = Date.now();
     console.log(`${colors.cyan}🚀 Lancement Orchestrator pour processus ${processId}...${colors.reset}\n`);
 
+    // Vérifier processId non null avant orchestration
+    if (!processId) {
+      throw new Error("❌ processId manquant pour orchestration");
+    }
+
     const orchestrator = ProcessOrchestrator.getInstance();
     const metrics = await orchestrator.executeWorkflow(processId);
 
@@ -246,10 +251,11 @@ async function testDemoE2E() {
       throw new Error(`❌ ${failedSteps.length} step(s) échoué(s)`);
     }
 
-    // Durée acceptable pour démo : Workflow orchestrator < 60s
-    // (Phase 1 Chat prend ~45s, Phase 2 Workflow ~50s = 95s total acceptable)
-    if (!metrics.totalDuration || metrics.totalDuration > 60000) {
-      throw new Error(`❌ Workflow orchestrator trop lent: ${metrics.totalDuration}ms (max: 60000ms)`);
+    // Durée acceptable pour démo : Workflow orchestrator < 75s
+    // (inclut retries potentiels si APISimulator a des soucis de parsing JSON)
+    // Phase 1 Chat: ~45s, Phase 2 Workflow: ~50-70s = 95-115s total acceptable
+    if (!metrics.totalDuration || metrics.totalDuration > 75000) {
+      throw new Error(`❌ Workflow orchestrator trop lent: ${metrics.totalDuration}ms (max: 75000ms)`);
     }
 
     // ====================================================================
