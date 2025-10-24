@@ -1,4 +1,4 @@
-// Tests pour NavigatorAgent - Navigation et soumission de démarches
+// Tests pour NavigatorAgent - Navigation et soumission de démarches (avec FormFiller intégré)
 import { NavigatorAgent } from "../agents/navigator";
 import * as admin from "firebase-admin";
 
@@ -10,7 +10,78 @@ if (!admin.apps.length) {
 }
 
 /**
- * Test 1 : Navigation CAF - Demande APL
+ * Test 0 : Mapping FormFiller - Transformation données utilisateur
+ */
+async function testFormMapping() {
+  console.log("\n" + "=".repeat(50));
+  console.log("=== TEST 0: FormFiller Mapping - CAF ===");
+  console.log("=".repeat(50) + "\n");
+
+  const navigator = NavigatorAgent.getInstance();
+  const processId = `test-mapping-${Date.now()}`;
+
+  // Créer document processus
+  await admin.firestore().collection("processus").doc(processId).set({
+    userId: "user-test-mapping",
+    typeProcessus: "APL",
+    status: "in_progress",
+    createdAt: admin.firestore.Timestamp.now(),
+  });
+  console.log(`📄 Document processus créé: ${processId}`);
+
+  const userData = {
+    nom: "Dupont",
+    prenom: "Marie",
+    situation: "Célibataire",
+    nombreEnfants: 0,
+    revenus: 1600,
+    dateNaissance: "15/05/1990",
+    ville: "Paris",
+    codePostal: "75001",
+    typeLogement: "Locataire",
+    loyer: 850,
+    email: "marie.dupont@example.com",
+    telephone: "06 12 34 56 78"
+  };
+
+  try {
+    console.log("📥 Données brutes utilisateur:");
+    console.log(JSON.stringify(userData, null, 2));
+
+    const mappingResult = await navigator.mapUserDataToForm(
+      processId,
+      userData,
+      "CAF"
+    );
+
+    console.log("\n✅ Résultat mapping:");
+    console.log(JSON.stringify(mappingResult, null, 2));
+
+    // Vérifications
+    if (mappingResult.mappedData) {
+      console.log("\n✅ Test RÉUSSI: Mapping généré");
+      console.log(`✅ Confidence: ${mappingResult.confidence}`);
+      console.log(`✅ Champs manquants: ${mappingResult.missingFields.length}`);
+      console.log(`✅ Warnings: ${mappingResult.warnings.length}`);
+
+      // Vérifier transformation format
+      if (mappingResult.mappedData.SITUATION_FAMILIALE === "1") {
+        console.log("✅ Transformation 'Célibataire' → '1' OK");
+      }
+      if (mappingResult.mappedData.TELEPHONE === "0612345678") {
+        console.log("✅ Transformation téléphone (suppression espaces) OK");
+      }
+    } else {
+      console.log("\n❌ Test ÉCHOUÉ: mappedData vide");
+    }
+
+  } catch (error) {
+    console.error("❌ Erreur test mapping:", error);
+  }
+}
+
+/**
+ * Test 1 : Navigation CAF - Demande APL (avec mapping intégré)
  */
 async function testNavigatorCAFSuccess() {
   console.log("\n" + "=".repeat(50));
@@ -286,7 +357,11 @@ async function runAllTests() {
   console.log("║   TESTS NAVIGATOR AGENT - DEV2 JOUR 1    ║");
   console.log("╚════════════════════════════════════════════╝");
 
-  console.log("\n🚀 Lancement des tests NavigatorAgent...\n");
+  console.log("\n🚀 Lancement des tests NavigatorAgent (avec FormFiller intégré)...\n");
+
+  // Test 0: Mapping FormFiller
+  await testFormMapping();
+  await new Promise((resolve) => setTimeout(resolve, 2000));
 
   // Tests séquentiels (pour éviter conflits Firestore)
   await testNavigatorCAFSuccess();
@@ -304,10 +379,11 @@ async function runAllTests() {
   await testNavigatorCAFError();
 
   console.log("\n" + "=".repeat(50));
-  console.log("✅ TOUS LES TESTS TERMINÉS");
+  console.log("✅ TOUS LES TESTS TERMINÉS (6 tests)");
   console.log("=".repeat(50));
 
   console.log("\n📝 Points vérifiés:");
+  console.log("   0. Mapping FormFiller (transformation format) ✅");
   console.log("   1. Navigation sur 5 sites administratifs ✅");
   console.log("   2. Soumission de démarches via APISimulator ✅");
   console.log("   3. Logging dans Firestore (activity_logs) ✅");

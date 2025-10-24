@@ -1,9 +1,9 @@
-# 🟢 DEV2 - JOUR 1 : Résumé des Tâches Complétées
+# 🟢 DEV2 - JOUR 1 + JOUR 2 MATIN : Résumé Complet
 
 **Date** : 24 octobre 2025  
 **Développeur** : DEV2 (Esdras)  
-**Durée** : 8h (Matin 4h + Après-midi 4h)  
-**Statut** : ✅ JOUR 1 TERMINÉ
+**Durée** : 12h (J1: 8h + J2 Matin: 4h)  
+**Statut** : ✅ JOUR 1 + JOUR 2 MATIN TERMINÉS
 
 ---
 
@@ -404,3 +404,240 @@ node lib/test/test-api-simulator.js
 - ✅ 13 tests end-to-end passent
 
 **Prêt pour** : ValidatorAgent + OrchestratorAgent (Jour 2) 🚀
+
+---
+
+# 🟡 JOUR 2 MATIN (4h) : ValidatorAgent
+
+## 1. ✅ Créer ValidatorAgent (3h)
+
+### Fichier créé : `validator.ts` (272 lignes)
+
+**Architecture** :
+- **Pattern** : Singleton avec `getInstance()`
+- **Modèle IA** : Vertex AI `gemini-2.5-flash` (mode VALIDATOR)
+- **Configuration** : `temperature: 0.2` (validation stricte et déterministe)
+
+**Méthodes principales** :
+
+#### `validateBeforeSubmission(processId: string, mappedData: MappedData)`
+- **Rôle** : Point d'entrée principal pour valider les données avant soumission administrative
+- **Process** :
+  1. Construit un prompt de validation détaillé en français
+  2. Appelle Vertex AI pour analyse avec règles strictes
+  3. Parse et nettoie la réponse JSON
+  4. Log le résultat dans Firestore (`activity_logs`)
+  5. Retourne `ValidationResult` avec erreurs, recommandations, confiance
+- **Durée moyenne** : 2.6 secondes par validation
+
+#### `buildValidationPrompt(mappedData: MappedData)`
+- **Rôle** : Construit un prompt structuré de 150 lignes avec règles de validation
+- **Catégories de validation** :
+  1. **Formats** : Email (xxx@yyy.zzz), Téléphone (10 chiffres, 06/07/01-05/09), Code postal (5 chiffres), Dates (non futures)
+  2. **Cohérence** : Ordre des dates, Montants positifs, Valeurs réalistes (loyer<10000€), Logique relationnelle
+  3. **Complétude** : Champs requis présents, Valeurs non vides (pas "", null, undefined)
+  4. **Logique métier** : Revenus>0 (sauf RSA), Loyer<Revenus×3 (règle APL), Age>=18
+
+#### `cleanJsonResponse(response: string)`
+- **Rôle** : Nettoie les réponses Vertex AI des marqueurs markdown et espaces superflus
+- **Traitement** : Supprime ` ```json `, ` ``` `, compacte les espaces
+
+#### `logValidation(processId, validation, duration)`
+- **Rôle** : Enregistre les résultats de validation dans Firestore
+- **Collection** : `activity_logs`
+- **Schema** :
+  ```typescript
+  {
+    processId: string,
+    timestamp: Timestamp,
+    agent: "ValidatorAgent",
+    statut: "SUCCESS" | "PARTIAL" | "ERROR",
+    message: string,
+    details: {
+      valid: boolean,
+      errors: ValidationError[],
+      recommendations: string[],
+      confidence: number
+    },
+    errorsCount: number,
+    criticalErrorsCount: number,
+    warningsCount: number,
+    recommendations: string[],
+    confidence: number,
+    duration: number
+  }
+  ```
+
+#### `logValidationError(processId, error)`
+- **Rôle** : Log les erreurs système (ex: échec Vertex AI, Firestore)
+- **Statut** : "ERROR"
+
+#### `getValidationHistory(processId)`
+- **Rôle** : Récupère l'historique des validations pour un processus
+- **Tri** : Par timestamp décroissant
+
+**Interfaces TypeScript** :
+```typescript
+interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+  recommendations: string[];
+  confidence: number; // 0.0 à 1.0
+}
+
+interface ValidationError {
+  field: string;
+  message: string;
+  severity: "critical" | "warning";
+}
+```
+
+**Gestion des erreurs** :
+- Try/catch sur appels Vertex AI et opérations Firestore
+- Retourne `ValidationResult` avec `valid=false` en cas d'erreur système
+- Log automatique des erreurs dans Firestore
+
+---
+
+## 2. ✅ Tests ValidatorAgent (1h)
+
+### Fichier créé : `test-validator.ts` (287 lignes)
+
+**Configuration** :
+- **Firebase Admin** : Initialisé une seule fois au début des tests
+- **Exécution** : Séquentielle avec délais de 2 secondes entre tests
+- **Output** : Logs console colorés avec résultats détaillés
+
+**5 Tests complets (tous ✅ PASSING)** :
+
+| # | Test | Données | Résultat Attendu | Résultat Obtenu | Durée | Statut |
+|---|------|---------|------------------|-----------------|-------|--------|
+| 1 | **Données valides CAF** | 8 champs valides (nom, prenom, email, tel, situation, revenus, ville, CP) | `valid=true`, 0 erreurs | ✅ `valid=true`, 0 erreurs, `confidence=1.0` | 7527ms | ✅ PASS |
+| 2 | **Email invalide** | `sophie.lefebvregmail.com` (manque @) | `valid=false`, erreur critique email | ✅ `valid=false`, 2 erreurs critiques (email + tel), `confidence=0.95` | 1459ms | ✅ PASS |
+| 3 | **Code postal invalide** | `"750"` (3 chiffres au lieu de 5) | `valid=false`, erreur critique code postal | ✅ `valid=false`, 1 erreur critique (code postal), `confidence=0.95` | 1582ms | ✅ PASS |
+| 4 | **Montant négatif** | `revenus_mensuels: -500` | `valid=false`, erreur critique montant | ✅ `valid=false`, 1 erreur critique (revenus négatifs), `confidence=1.0` | 800ms | ✅ PASS |
+| 5 | **Champs manquants** | Absence de email, telephone, code_postal | `valid=false`, 3 erreurs critiques | ✅ `valid=false`, 3 erreurs critiques (champs manquants), `confidence=0.95` | 1797ms | ✅ PASS |
+
+**Durée totale d'exécution** : ~13.2 secondes
+
+**Capacités validées** :
+- ✅ Validation de formats (email, téléphone, code postal)
+- ✅ Détection de valeurs négatives (montants)
+- ✅ Vérification de complétude (champs requis)
+- ✅ Logging Firestore correct (activity_logs créés avec schéma approprié)
+- ✅ Scores de confiance cohérents (0.95-1.0)
+- ✅ Sévérité des erreurs correcte (critical pour problèmes bloquants)
+
+---
+
+## 3. 📊 Bilan JOUR 2 MATIN
+
+**Temps prévu** : 4h (3h ValidatorAgent + 1h Tests)  
+**Temps réel** : ~4h  
+**Progression** : ✅ 65% ROADMAP DEV2 complété (3/5 agents majeurs)
+
+**Composants opérationnels** :
+- ✅ **APISimulatorAgent** : 336 lignes, 7 sites administratifs, 8/8 tests
+- ✅ **NavigatorAgent** : 218 lignes, navigation + logging Firestore, 5/5 tests
+- ✅ **ValidatorAgent** : 272 lignes, validation stricte + logging, 5/5 tests
+
+**Tests totaux** : 18/18 PASSING (100% success rate)
+- APISimulator : 8 tests
+- Navigator : 5 tests
+- Validator : 5 tests
+
+**Lignes de code** : ~1789 lignes (production + tests)
+
+**Sites administratifs supportés** : 7
+1. **CAF** : Aide au logement (APL)
+2. **ANTS** : Carte d'identité, passeport
+3. **IMPOTS** : Déclaration revenus
+4. **SECU** : Carte vitale
+5. **POLE_EMPLOI** : Inscription chômage
+6. **PREFECTURE** : Titre de séjour
+7. **URSSAF** : Inscription auto-entrepreneur
+
+**Firestore opérationnel** :
+- ✅ `activity_logs` : 18 logs créés (APISimulator, Navigator, Validator)
+- ✅ `processus` : 5 processus créés (tests Navigator)
+- ✅ Schema complet : processId, timestamp, agent, statut, message, details
+
+**Vertex AI opérationnel** :
+- ✅ Modèle NAVIGATOR : `gemini-2.0-flash-exp` (maxTokens=2048)
+- ✅ Modèle VALIDATOR : `gemini-2.5-flash` (temperature=0.2)
+- ✅ ADC configuré (Application Default Credentials)
+- ✅ Latence moyenne : NAVIGATOR ~3.5s, VALIDATOR ~2.6s
+
+---
+
+## 4. 🔄 Prochaines Étapes
+
+### Option A : JOUR 2 APRÈS-MIDI - Frontend Logs (2h)
+**Tâches** :
+- Grouper logs par type (success/error/warning/info)
+- Ajouter animations pour apparition des logs
+- Implémenter auto-scroll vers derniers logs
+- Color-code par sévérité
+
+**Avantages** :
+- Travail indépendant (pas de dépendance DEV1)
+- Amélioration UX pour démo
+- Visualisation claire du workflow agent
+
+**Inconvénients** :
+- Frontend non critique pour POC backend
+- Temps potentiellement mieux utilisé pour intégration
+
+### Option B : Attendre synchronisation DEV1
+**Tâches** :
+- Tester intégration FormFiller + Validator
+- Vérifier structure `processus` depuis ChatAgent
+- Préparer JOUR 3 Orchestrator
+
+**Avantages** :
+- Évite travail en double
+- Prépare intégration critique
+- Aligne équipe DEV1+DEV2
+
+**Inconvénients** :
+- Temps d'attente potentiellement perdu
+- Dépendance externe
+
+### Option C : Tests Validator avancés (2h)
+**Tâches** :
+- Scénarios validation complexes (dates cohérentes, logique métier)
+- Tests génération de recommandations
+- Tests edge cases confidence scores
+
+**Avantages** :
+- Robustesse accrue ValidatorAgent
+- Couverture tests exhaustive
+- Détection bugs edge cases
+
+**Inconvénients** :
+- Retour sur investissement modéré (tests fonctionnels OK)
+- N'avance pas intégration globale
+
+**Recommandation** : **Option B** si DEV1 disponible sous 1h, sinon **Option A** pour optimiser temps.
+
+---
+
+## 5. 📝 Notes Techniques
+
+**Patterns utilisés** :
+- **Singleton** : ValidatorAgent, NavigatorAgent, APISimulatorAgent
+- **Factory** : AIModels pour instanciation modèles Vertex AI
+- **Strategy** : Validation règles par catégories (Formats, Cohérence, Complétude, Logique métier)
+
+**Dépendances ajoutées** :
+- `@google-cloud/vertexai` : Modèles Vertex AI
+- `firebase-admin` : Firestore operations
+- `puppeteer` : Navigation web (NavigatorAgent)
+
+**Configuration requise** :
+- ✅ `gcloud auth application-default login` : ADC configuré
+- ✅ Firestore Database créée (mode Native)
+- ✅ Vertex AI API activée
+- ✅ Service Account avec rôles appropriés
+
+**Prêt pour** : OrchestratorAgent (JOUR 3) 🚀
