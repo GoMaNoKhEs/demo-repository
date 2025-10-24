@@ -4,8 +4,9 @@ import {
   Pause as PauseIcon, 
   Stop as StopIcon,
   Speed as SpeedIcon,
+  DragIndicator as DragIcon,
 } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useDemoSimulation } from '../../hooks/useDemoSimulation';
 
 interface DemoModeControlsProps {
@@ -18,6 +19,12 @@ export const DemoModeControls = ({ onStart, onStop, isActive }: DemoModeControls
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState<number>(1);
   const [progress, setProgress] = useState(0);
+  
+  // État pour rendre le panel draggable
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Hook de simulation qui gère toute la logique de démo
   const { resetDemo } = useDemoSimulation({
@@ -27,6 +34,61 @@ export const DemoModeControls = ({ onStart, onStop, isActive }: DemoModeControls
     onProgressUpdate: (newProgress) => setProgress(newProgress),
     onComplete: () => setIsPlaying(false),
   });
+  
+  // Gestionnaires de drag
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y,
+    });
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    setIsDragging(true);
+    setDragStart({
+      x: touch.clientX - position.x,
+      y: touch.clientY - position.y,
+    });
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      setPosition({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y,
+      });
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDragging) return;
+      const touch = e.touches[0];
+      setPosition({
+        x: touch.clientX - dragStart.x,
+        y: touch.clientY - dragStart.y,
+      });
+    };
+
+    const handleEnd = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleEnd);
+      document.addEventListener('touchmove', handleTouchMove);
+      document.addEventListener('touchend', handleEnd);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleEnd);
+    };
+  }, [isDragging, dragStart]);
 
   const handlePlay = () => {
     if (!isActive) {
@@ -49,7 +111,7 @@ export const DemoModeControls = ({ onStart, onStop, isActive }: DemoModeControls
 
   if (!isActive) {
     return (
-      <Box sx={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000 }}>
+      <Box sx={{ position: 'fixed', bottom: 24, left: 24, zIndex: 1000 }}> {/* En bas à GAUCHE pour ne pas gêner le chat ni le bouton de prise de contrôle */}
         <Tooltip title="Activer le mode démonstration automatique">
           <Button
             variant="contained"
@@ -108,26 +170,39 @@ export const DemoModeControls = ({ onStart, onStop, isActive }: DemoModeControls
         </Stack>
       </Paper>
 
-      {/* Contrôles flottants */}
+      {/* Contrôles flottants - DRAGGABLE */}
       <Paper
+        ref={panelRef}
         elevation={8}
         sx={{
           position: 'fixed',
-          bottom: 24,
-          right: 24,
+          bottom: position.y === 0 ? 24 : 'auto',
+          right: position.y === 0 ? 24 : 'auto',
+          top: position.y !== 0 ? position.y : 'auto',
+          left: position.x !== 0 ? position.x : 'auto',
+          transform: position.y === 0 ? 'none' : `translate(${position.x}px, ${position.y}px)`,
           zIndex: 1100,
           p: 3,
           borderRadius: 3,
           minWidth: 320,
+          maxWidth: { xs: 'calc(100vw - 32px)', sm: 400 },
           bgcolor: 'background.paper',
+          cursor: isDragging ? 'grabbing' : 'grab',
+          userSelect: 'none',
+          touchAction: 'none',
         }}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
       >
         <Stack spacing={2.5}>
-          {/* Header */}
+          {/* Header avec indicateur de drag */}
           <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Typography variant="subtitle1" fontWeight="bold">
-              🎮 Contrôles Démo
-            </Typography>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <DragIcon fontSize="small" color="action" sx={{ cursor: 'grab' }} />
+              <Typography variant="subtitle1" fontWeight="bold">
+                🎮 Contrôles Démo
+              </Typography>
+            </Stack>
             <Chip
               label={`${Math.round(progress)}%`}
               size="small"

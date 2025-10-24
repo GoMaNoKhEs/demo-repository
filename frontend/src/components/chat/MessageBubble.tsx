@@ -98,16 +98,18 @@ export const MessageBubble = ({ message, isThinking }: MessageBubbleProps) => {
               <Typography variant="body1">
                 {message.content}
               </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  display: 'block',
-                  mt: 1,
-                  opacity: 0.7,
-                }}
-              >
-                {message.timestamp.toLocaleTimeString()}
-              </Typography>
+              {message.timestamp && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    display: 'block',
+                    mt: 1,
+                    opacity: 0.7,
+                  }}
+                >
+                  {message.timestamp.toLocaleTimeString()}
+                </Typography>
+              )}
             </>
           )}
         </Paper>
