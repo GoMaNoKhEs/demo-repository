@@ -1,13 +1,12 @@
-import fs from "fs";
 import { callLLM } from "./config/ai-config.js";
+import { loadContext, saveContext } from "./mcp-store.js";
 
 export async function runMonitor() {
-  const filePath = new URL("../shared_context.json", import.meta.url);
-  const context = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  const ctx = await loadContext();
   const prompt = `
 Tu es un agent IA MONITOR chargé du suivi des dossiers administratifs.
 
-CONTEXTE : ${JSON.stringify(context, null, 2)}
+CONTEXTE : ${JSON.stringify(ctx, null, 2)}
 
 MISSION :
 1. Déterminer si le statut du dossier a changé.
@@ -34,7 +33,7 @@ Exemple :
 
   console.log("\n [Monitor] Réponse IA :\n", JSON.stringify(monitor, null, 2));
 
-  const updated = { ...context, monitor };
-  fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+  const updated = { ...ctx, monitor, updatedAt: new Date().toISOString() };
+  await saveContext(updated);
   console.log("💾 Contexte mis à jour avec le statut du dossier");
 }

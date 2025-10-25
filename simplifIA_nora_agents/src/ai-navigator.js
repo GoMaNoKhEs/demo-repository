@@ -1,11 +1,11 @@
-import fs from "fs";
-import fetch from "node-fetch";
 import { callLLM } from "./config/ai-config.js";
+import { loadContext, saveContext } from "./mcp-store.js";
+
 
 
 export async function runNavigator() {
   //  Corrige le chemin d'accès : le fichier est à la racine du dossier simplifIA_nora_agents
-  const filePath = new URL("../shared_context.json", import.meta.url);
+  const ctx = await loadContext();
 
   //  Lecture sécurisée du contexte (si le fichier existe)
   let context = {};
@@ -19,7 +19,7 @@ export async function runNavigator() {
 
   const prompt = `
 Tu es un expert IA en analyse de sites web gouvernementaux.
-SCÉNARIO : ${context.scenario}
+SCÉNARIO : ${ctx.scenario || "inconnu"}
 
 OBJECTIF :
 1. Proposer l’URL officielle probable du site correspondant
@@ -43,8 +43,8 @@ const nav = await callLLM(prompt);
 console.log("\n [Navigator] Réponse IA :\n", JSON.stringify(nav, null, 2));
 
 //  Mise à jour du contexte MCP partagé
-const updated = { ...context, navigation: nav };
-fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+const updated = { ...ctx, navigation: nav, updatedAt: new Date().toISOString() };
+await saveContext(updated);
 console.log(" Contexte mis à jour avec la navigation");
 }
 

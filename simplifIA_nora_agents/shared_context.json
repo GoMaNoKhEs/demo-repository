@@ -1,34 +1,40 @@
 {
-  "scenario": "carte_europeenne_assurance_maladie",
-  "confidence": 98,
+  "sessionId": "demo-session",
+  "scenario": "carte_europeenne",
+  "confidence": 95,
   "title": "Demande de Carte Européenne d'Assurance Maladie (CEAM)",
-  "description": "Pour un séjour temporaire en Espagne (pays de l'Union Européenne), la Carte Européenne d'Assurance Maladie (CEAM) permet d'attester de vos droits à l'assurance maladie et de bénéficier d'une prise en charge de vos soins médicaux nécessaires. Elle est personnelle et nominative.",
+  "description": "La Carte Européenne d'Assurance Maladie (CEAM) permet la prise en charge de vos soins médicaux lors d'un séjour temporaire en Espagne (pays membre de l'Union Européenne), dans les mêmes conditions que les assurés du pays. Elle est individuelle, gratuite et valable 2 ans.",
   "requiredDocuments": [],
   "steps": [
     {
       "id": "1",
       "title": "Se connecter au compte Ameli",
-      "description": "Accédez à votre compte personnel sur ameli.fr ou via l'application compagnon ameli."
+      "description": "Accédez à votre compte personnel sur ameli.fr ou via l'application 'Mon compte ameli'."
     },
     {
       "id": "2",
-      "title": "Effectuer la demande de CEAM",
-      "description": "Dans la rubrique 'Mes démarches' ou 'Mes services', sélectionnez 'Demander une carte européenne d'assurance maladie'."
+      "title": "Accéder à la rubrique des démarches",
+      "description": "Dans la section 'Mes démarches' ou 'Mes services', recherchez l'option 'Commander ma CEAM'."
     },
     {
       "id": "3",
-      "title": "Vérifier l'adresse postale",
-      "description": "Confirmez votre adresse postale à laquelle la CEAM sera envoyée."
+      "title": "Valider la demande de CEAM",
+      "description": "Suivez les instructions pour demander la carte pour vous et les membres de votre famille rattachés à votre régime (conjoint, enfants)."
     },
     {
       "id": "4",
-      "title": "Télécharger l'attestation provisoire (si nécessaire)",
-      "description": "Si votre départ est imminent (le 15 juin) et que vous risquez de ne pas recevoir la CEAM à temps (délai d'environ 10 jours), téléchargez une attestation provisoire de droits depuis votre compte Ameli. Cette attestation est valable 20 jours et a la même valeur que la CEAM."
+      "title": "Vérifier l'adresse de réception",
+      "description": "Assurez-vous que l'adresse postale enregistrée dans votre compte est correcte, c'est à cette adresse que la CEAM sera envoyée."
     },
     {
       "id": "5",
-      "title": "Recevoir la CEAM",
-      "description": "La carte vous sera envoyée par courrier à votre domicile sous environ 10 jours."
+      "title": "Télécharger l'attestation provisoire",
+      "description": "Une attestation provisoire, valable 3 mois et offrant les mêmes droits que la CEAM, est généralement disponible immédiatement en téléchargement."
+    },
+    {
+      "id": "6",
+      "title": "Réception de la CEAM définitive",
+      "description": "La Carte Européenne d'Assurance Maladie définitive vous sera envoyée par courrier dans un délai d'environ 15 jours."
     }
   ],
   "riskLevel": "low",
@@ -36,25 +42,22 @@
     "url": "https://www.ameli.fr/assure/droits-demarches/europe-international/carte-europeenne-assurance-maladie-ceam",
     "pageType": "form",
     "keyElements": [
-      "Bouton/Lien \"Demander ma CEAM en ligne\"",
-      "Informations sur les conditions d'obtention et les délais de réception",
-      "Accès à l'espace personnel Ameli.fr (nécessaire pour la demande)"
+      "Formulaire de demande de CEAM",
+      "Informations sur l'éligibilité et la durée de validité",
+      "Bouton de validation de la demande"
     ],
-    "nextAction": "Se connecter à son compte Ameli et suivre les étapes de demande de la Carte Européenne d'Assurance Maladie."
+    "nextAction": "Confirmation de la demande de CEAM et informations sur le délai d'envoi"
   },
   "form": {
     "filledData": {
-      "nom": "Martin",
-      "prenom": "Claire",
-      "email": "claire.martin@email.fr"
+      "nom": "Dubois",
+      "prenom": "Sophie",
+      "date_naissance": "1985-03-15",
+      "numero_securite_sociale": "285037512345678"
     },
     "missingFields": [
-      "numéro de sécurité sociale",
-      "date de naissance",
-      "adresse postale",
-      "code postal",
-      "ville",
-      "téléphone"
+      "adresse_postale",
+      "email"
     ],
     "confidence": 90
   },
@@ -63,19 +66,15 @@
     "riskLevel": "high",
     "requiresApproval": true,
     "warnings": [
-      "Champ obligatoire 'numéro de sécurité sociale' manquant.",
-      "Champ obligatoire 'date de naissance' manquant.",
-      "Champ obligatoire 'adresse postale' manquant.",
-      "Champ obligatoire 'code postal' manquant.",
-      "Champ obligatoire 'ville' manquant.",
-      "Champ 'téléphone' manquant, fortement recommandé pour cette démarche."
+      "Champ obligatoire 'adresse_postale' manquant. La carte européenne d'assurance maladie ne pourra pas être envoyée.",
+      "Champ obligatoire 'email' manquant. L'utilisateur ne pourra pas être contacté pour le suivi de sa demande."
     ]
   },
   "lastChat": {
-    "response_human": "Bonjour Claire, je comprends tout à fait votre interrogation concernant le suivi de votre demande de Carte Européenne d'Assurance Maladie. D'après les informations dont je dispose, il semblerait que votre dossier ne soit pas encore complet et validé. Il manque en effet plusieurs informations essentielles pour que votre demande puisse être traitée par l'administration, notamment votre numéro de sécurité sociale, votre date de naissance, et votre adresse postale complète (code postal, ville). Rassurez-vous, une fois ces éléments renseignés sur votre compte Ameli, vous pourrez finaliser et soumettre votre demande.",
+    "response_human": "Bonjour Sophie, merci de me contacter. Je comprends tout à fait votre interrogation concernant le suivi de votre demande de Carte Européenne d'Assurance Maladie. Actuellement, votre dossier est identifié comme **incomplet**. Pour que votre demande puisse être traitée et que votre CEAM vous soit envoyée, il est indispensable de renseigner votre **adresse postale** et votre **adresse email** sur votre compte Ameli. Ces informations sont cruciales pour l'envoi de votre carte et pour les communications de suivi. Une fois ces éléments ajoutés, votre demande pourra être finalisée.",
     "suggestedActions": [
-      "Me connecter à mon compte Ameli pour compléter les informations manquantes (numéro de sécurité sociale, date de naissance, adresse...)",
-      "Valider et soumettre ma demande de CEAM une fois mon dossier complet"
+      "Me connecter à mon compte Ameli pour compléter mon adresse postale et mon adresse email.",
+      "Valider et soumettre ma demande de CEAM une fois mes informations à jour."
     ]
   },
   "monitor": {
@@ -83,5 +82,6 @@
     "newStatus": "dossier incomplet",
     "message": "Votre dossier est incomplet. Des informations obligatoires sont manquantes, empêchant le traitement de votre demande.",
     "daysRemaining": 0
-  }
+  },
+  "updatedAt": "2025-10-25T19:03:18.153Z"
 }

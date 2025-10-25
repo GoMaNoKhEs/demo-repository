@@ -1,6 +1,5 @@
-import fs from "fs";
-import fetch from "node-fetch";
 import { callLLM } from "./config/ai-config.js";
+import { loadContext, saveContext } from "./mcp-store.js";
 
 export async function runAnalyzer(userContext) {
   const prompt = `
@@ -63,8 +62,15 @@ Exemple :
 
   console.log("\n [Analyzer] JSON reçu :\n", JSON.stringify(json, null, 2));
 
-  const filePath = new URL("../shared_context.json", import.meta.url);
-  fs.writeFileSync(filePath, JSON.stringify(json, null, 2));
-  console.log(" Contexte partagé écrit dans shared_context.json");
+  const base = await loadContext();
+  const updated = {
+    sessionId: base.sessionId || process.env.SESSION_ID || "demo-session",
+    ...base,
+    ...json,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await saveContext(updated);
+  console.log("💾 Contexte mis à jour (Analyzer)");
 }
   

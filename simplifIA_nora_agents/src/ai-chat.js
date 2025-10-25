@@ -1,13 +1,12 @@
-import fs from "fs";
 import { callLLM } from "./config/ai-config.js";
+import { loadContext, saveContext } from "./mcp-store.js";
 
 export async function runChat(userMessage) {
-  const filePath = new URL("../shared_context.json", import.meta.url);
-  const context = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  const ctx = await loadContext();
   const prompt = `
 Tu es SimplifIA, l'assistant bienveillant des démarches administratives françaises.
 
-CONTEXTE : ${JSON.stringify(context, null, 2)}
+CONTEXTE : ${JSON.stringify(ctx, null, 2)}
 MESSAGE UTILISATEUR : "${userMessage}"
 
 MISSION :
@@ -31,7 +30,7 @@ Exemple :
 
   console.log("\n💬 [Chat] Réponse IA :\n", JSON.stringify(chat, null, 2));
 
-  const updated = { ...context, lastChat: chat };
-  fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+  const updated = { ...ctx, lastChat: chat, updatedAt: new Date().toISOString() };
+  await saveContext(updated);
   console.log("💾 Contexte mis à jour avec la réponse du chat");
 }

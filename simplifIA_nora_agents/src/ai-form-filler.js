@@ -1,14 +1,14 @@
-import fs from "fs";
 import { callLLM } from "./config/ai-config.js";
+import { loadContext, saveContext } from "./mcp-store.js";
+
 
 export async function runFormFiller() {
-  const filePath = new URL("../shared_context.json", import.meta.url);
-  const context = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  const ctx = await loadContext();
   const prompt = `
 Tu es un assistant IA qui remplit un formulaire administratif français.
 
-SCÉNARIO : ${context.scenario}
-URL : ${context.navigation?.url || "inconnue"}
+SCÉNARIO : ${ctx.scenario}
+URL : ${ctx.navigation?.url || "inconnue"}
 
 MISSION :
 1. Déduis quels champs standards sont requis (nom, prénom, email, etc.)
@@ -33,7 +33,7 @@ Exemple :
 
   console.log("\n [FormFiller] Réponse IA :\n", JSON.stringify(form, null, 2));
 
-  const updated = { ...context, form };
-  fs.writeFileSync(filePath, JSON.stringify(updated, null, 2));
+  const updated = { ...ctx, form, updatedAt: new Date().toISOString() };
+  await saveContext(updated);
   console.log("Contexte mis à jour avec les données de formulaire");
 }
