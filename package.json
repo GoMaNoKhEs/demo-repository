@@ -5,7 +5,13 @@
   "type": "module",
   "license": "MIT",
   "dependencies": {
-    "node-fetch": "^3.3.2",
-    "@primer/css": "17.0.1"
+    "@google-cloud/vertexai": "^1.10.0",
+    "@primer/css": "17.0.1",
+    "firebase-admin": "^13.5.0",
+    "node-fetch": "^3.3.2"
+  },
+  "scripts": {
+    "start": "node simplifIA_nora_agents/main.js",
+    "start:vertex": "USE_VERTEX=1 node simplifIA_nora_agents/main.js"
   }
 }

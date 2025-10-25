@@ -1,93 +1,87 @@
 {
-  "scenario": "voyage_espagne",
-  "confidence": 85,
-  "title": "Démarches administratives avant un voyage en Espagne",
-  "description": "Le voyage en Espagne implique plusieurs vérifications et démarches à effectuer pour assurer un séjour serein et conforme à la loi.",
-  "requiredDocuments": [
-    {
-      "name": "Carte d'identité",
-      "required": true
-    },
-    {
-      "name": "Passeport (si nécessaire)",
-      "required": true
-    },
-    {
-      "name": "Assurance voyage",
-      "required": true
-    }
-  ],
+  "scenario": "carte_europeenne_assurance_maladie",
+  "confidence": 98,
+  "title": "Demande de Carte Européenne d'Assurance Maladie (CEAM)",
+  "description": "Pour un séjour temporaire en Espagne (pays de l'Union Européenne), la Carte Européenne d'Assurance Maladie (CEAM) permet d'attester de vos droits à l'assurance maladie et de bénéficier d'une prise en charge de vos soins médicaux nécessaires. Elle est personnelle et nominative.",
+  "requiredDocuments": [],
   "steps": [
     {
       "id": "1",
-      "title": "Vérifier la validité du passeport",
-      "description": "Assurez-vous que votre passeport est valide pour toute la durée de votre séjour en Espagne."
+      "title": "Se connecter au compte Ameli",
+      "description": "Accédez à votre compte personnel sur ameli.fr ou via l'application compagnon ameli."
     },
     {
       "id": "2",
-      "title": "Vérifier les exigences d'entrée",
-      "description": "Consultez le site de l'ambassade ou du consulat espagnol pour les informations actualisées sur les exigences d'entrée (visa si nécessaire)."
+      "title": "Effectuer la demande de CEAM",
+      "description": "Dans la rubrique 'Mes démarches' ou 'Mes services', sélectionnez 'Demander une carte européenne d'assurance maladie'."
     },
     {
       "id": "3",
-      "title": "Souscrire une assurance voyage",
-      "description": "L'assurance voyage est obligatoire pour bénéficier de soins médicaux en Espagne.  Vous pouvez la trouver auprès de votre assurance actuelle ou auprès d'un assureur spécialisé."
+      "title": "Vérifier l'adresse postale",
+      "description": "Confirmez votre adresse postale à laquelle la CEAM sera envoyée."
     },
     {
       "id": "4",
-      "title": "Vérifier les règles sanitaires",
-      "description": "Consultez les dernières recommandations sanitaires concernant le COVID-19 et les autres risques sanitaires en Espagne."
+      "title": "Télécharger l'attestation provisoire (si nécessaire)",
+      "description": "Si votre départ est imminent (le 15 juin) et que vous risquez de ne pas recevoir la CEAM à temps (délai d'environ 10 jours), téléchargez une attestation provisoire de droits depuis votre compte Ameli. Cette attestation est valable 20 jours et a la même valeur que la CEAM."
     },
     {
       "id": "5",
-      "title": "Prévenir votre banque",
-      "description": "Informez votre banque de votre voyage afin d'éviter que vos cartes soient bloquées."
-    },
-    {
-      "id": "6",
-      "title": "Conserver des copies des documents importants",
-      "description": "Faites des copies de votre passeport, carte d'identité, assurance voyage et autres documents importants."
+      "title": "Recevoir la CEAM",
+      "description": "La carte vous sera envoyée par courrier à votre domicile sous environ 10 jours."
     }
   ],
   "riskLevel": "low",
   "navigation": {
-    "url": "https://www.spain.info/en/",
-    "pageType": "home",
+    "url": "https://www.ameli.fr/assure/droits-demarches/europe-international/carte-europeenne-assurance-maladie-ceam",
+    "pageType": "form",
     "keyElements": [
-      "Visa Requirements",
-      "Travel Information",
-      "Contact Information"
+      "Bouton/Lien \"Demander ma CEAM en ligne\"",
+      "Informations sur les conditions d'obtention et les délais de réception",
+      "Accès à l'espace personnel Ameli.fr (nécessaire pour la demande)"
     ],
-    "nextAction": "Navigate to the specific information regarding your travel needs (e.g., visa, tourist information)."
+    "nextAction": "Se connecter à son compte Ameli et suivre les étapes de demande de la Carte Européenne d'Assurance Maladie."
   },
   "form": {
     "filledData": {
       "nom": "Martin",
-      "prenom": "Sophie",
-      "email": "sophie.martin@example.fr",
-      "date_naissance": "1988-03-15",
-      "nationalite": "Française"
+      "prenom": "Claire",
+      "email": "claire.martin@email.fr"
     },
-    "missingFields": [],
-    "confidence": 95
+    "missingFields": [
+      "numéro de sécurité sociale",
+      "date de naissance",
+      "adresse postale",
+      "code postal",
+      "ville",
+      "téléphone"
+    ],
+    "confidence": 90
   },
   "validation": {
-    "isValid": true,
-    "riskLevel": "low",
-    "requiresApproval": false,
-    "warnings": []
+    "isValid": false,
+    "riskLevel": "high",
+    "requiresApproval": true,
+    "warnings": [
+      "Champ obligatoire 'numéro de sécurité sociale' manquant.",
+      "Champ obligatoire 'date de naissance' manquant.",
+      "Champ obligatoire 'adresse postale' manquant.",
+      "Champ obligatoire 'code postal' manquant.",
+      "Champ obligatoire 'ville' manquant.",
+      "Champ 'téléphone' manquant, fortement recommandé pour cette démarche."
+    ]
   },
   "lastChat": {
-    "response_human": "Bonjour Sophie, concernant votre demande pour préparer votre voyage en Espagne, tout est en ordre ! Votre demande est validée et toutes les démarches nécessaires sont en cours de réalisation. Vous avez bien vérifié les documents requis et les règles sanitaires. Je vous conseille de consulter régulièrement les informations mises à jour sur le site de l'ambassade espagnole : [https://www.spain.info/en/](https://www.spain.info/en/).",
+    "response_human": "Bonjour Claire, je comprends tout à fait votre interrogation concernant le suivi de votre demande de Carte Européenne d'Assurance Maladie. D'après les informations dont je dispose, il semblerait que votre dossier ne soit pas encore complet et validé. Il manque en effet plusieurs informations essentielles pour que votre demande puisse être traitée par l'administration, notamment votre numéro de sécurité sociale, votre date de naissance, et votre adresse postale complète (code postal, ville). Rassurez-vous, une fois ces éléments renseignés sur votre compte Ameli, vous pourrez finaliser et soumettre votre demande.",
     "suggestedActions": [
-      "Consulter le site de l'ambassade espagnole",
-      "Vérifier les dernières recommandations sanitaires"
+      "Me connecter à mon compte Ameli pour compléter les informations manquantes (numéro de sécurité sociale, date de naissance, adresse...)",
+      "Valider et soumettre ma demande de CEAM une fois mon dossier complet"
     ]
   },
   "monitor": {
-    "statusChanged": true,
-    "newStatus": "en_cours",
-    "message": "Votre dossier est en cours de traitement par l'administration.",
-    "daysRemaining": 5
+    "statusChanged": false,
+    "newStatus": "dossier incomplet",
+    "message": "Votre dossier est incomplet. Des informations obligatoires sont manquantes, empêchant le traitement de votre demande.",
+    "daysRemaining": 0
   }
 }

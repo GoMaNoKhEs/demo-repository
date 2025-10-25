@@ -71,3 +71,5 @@ venv.bak/
 # 🧠 Cloud & Secrets
 firebase-admin-key.json
 *.key.json
+# Empêche la clé Firebase d'être partagée
+simplifIA_nora_agents/config/*.json
