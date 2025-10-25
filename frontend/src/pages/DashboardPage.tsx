@@ -66,8 +66,18 @@ export const DashboardPage = () => {
     // sessions, loadSession, deleteSession, updateTitleIfNeeded - à utiliser plus tard pour UI liste
   } = useSessionManager(user?.uid);
 
-  // ID de session : utiliser currentSessionId du hook au lieu du sessionId fixe
-  const sessionId = currentSessionId || (user ? `session-${user.uid}` : 'demo-session-123');
+  // ID de session : UTILISER UNIQUEMENT currentSessionId (pas de fallback !)
+  // ⚠️ CRITICAL : Le même sessionId DOIT être utilisé pour subscribe ET envoyer les messages
+  const sessionId = currentSessionId;
+  
+  // Debug logs pour diagnostiquer les problèmes de session
+  useEffect(() => {
+    console.log('[Dashboard] 🔑 Session ID changed:', { 
+      currentSessionId, 
+      sessionId,
+      userId: user?.uid,
+    });
+  }, [currentSessionId, sessionId, user?.uid]);
 
   // États pour les nouveaux composants Phase 3 DEV2
   const [criticalActionModalOpen, setCriticalActionModalOpen] = useState(false);
@@ -205,15 +215,19 @@ export const DashboardPage = () => {
       sessionId,
       (process) => {
         console.log('[Dashboard] Process received:', process);
+        console.log('[Dashboard] Process ID:', process.id);
+        console.log('[Dashboard] Process status:', process.status);
         setCurrentProcess(process);
         setIsLoading(false);
         
         // S'abonner aux logs d'activité une fois qu'on a le processId
         if (process.id) {
+          console.log('[Dashboard] Subscribing to activity_logs for processId:', process.id);
           const unsubscribeLogs = subscribeToActivityLogs(
             process.id,
             (logs) => {
               console.log('[Dashboard] Activity logs received:', logs.length);
+              console.log('[Dashboard] Activity logs data:', logs);
               setActivityLogs(logs);
             },
             (error) => {
@@ -223,6 +237,8 @@ export const DashboardPage = () => {
           );
           
           return unsubscribeLogs;
+        } else {
+          console.warn('[Dashboard] Process has no ID, cannot subscribe to logs');
         }
       },
       (error) => {
@@ -249,19 +265,19 @@ export const DashboardPage = () => {
         setIsLoading(false);
       }, 1000);
     } else if (user && sessionId) {
-      console.log('[Dashboard] User authenticated:', user.email);
-      console.log('[Dashboard] Listening to messages for session:', sessionId);
+      console.log('[Dashboard] ✅ User authenticated:', user.email);
+      console.log('[Dashboard] ✅ Listening to messages for session:', sessionId);
       
       // Écouter les messages en temps réel pour cette session
       const unsubscribeMessages = subscribeToMessages(
         sessionId,
         (messages) => {
-          console.log('[Dashboard] Messages received:', messages.length);
+          console.log('[Dashboard] 📨 Messages received:', messages.length);
           // Mettre à jour les messages dans le store
           setChatMessages(messages);
         },
         (error) => {
-          console.error('[Dashboard] Messages subscription error:', error);
+          console.error('[Dashboard] ❌ Messages subscription error:', error);
         }
       );
       
@@ -269,11 +285,11 @@ export const DashboardPage = () => {
       
       // Cleanup
       return () => {
-        console.log('[Dashboard] Unsubscribing from messages for session:', sessionId);
+        console.log('[Dashboard] 🔌 Unsubscribing from messages for session:', sessionId);
         unsubscribeMessages();
       };
     } else {
-      console.log('[Dashboard] Waiting for authentication...');
+      console.warn('[Dashboard] ⏳ Waiting for user and sessionId...', { user: !!user, sessionId });
       setIsLoading(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1137,7 +1153,7 @@ export const DashboardPage = () => {
 
                 {/* Zone de chat */}
                 <Box sx={{ flexGrow: 1, overflow: 'hidden' }} className="chat-interface">
-                  <ChatInterface sessionId={sessionId} />
+                  <ChatInterface sessionId={sessionId} userId={user?.uid} />
                 </Box>
               </Paper>
             </Box>

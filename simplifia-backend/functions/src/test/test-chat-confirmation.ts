@@ -1,6 +1,6 @@
 /**
  * Test spécifique pour vérifier la détection de confirmation
- * 
+ *
  * OBJECTIF: Vérifier que "Lance le processus toi-même" déclenche userConfirmed = true
  */
 
@@ -40,17 +40,17 @@ async function testConfirmationDetection() {
         content: msg.content,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
-      await new Promise(resolve => setTimeout(resolve, 100)); // Attendre pour ordre timestamp
+      await new Promise((resolve) => setTimeout(resolve, 100)); // Attendre pour ordre timestamp
     }
 
     console.log(`✅ ${messages.length} messages créés dans session: ${sessionId}\n`);
 
     // 2. Envoyer le message de confirmation
     console.log("📤 Étape 2: Envoyer message de confirmation\n");
-    console.log('Message utilisateur: "Lance le processus toi-même"\n');
+    console.log("Message utilisateur: \"Lance le processus toi-même\"\n");
 
     const chatAgent = ChatAgent.getInstance();
-    
+
     // Ajouter le message utilisateur AVANT processUserMessage
     await db.collection("messages").add({
       sessionId,
@@ -64,7 +64,7 @@ async function testConfirmationDetection() {
     console.log("\n✅ Message traité par ChatAgent\n");
 
     // 3. Vérifier si un processus a été créé
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Attendre création
+    await new Promise((resolve) => setTimeout(resolve, 2000)); // Attendre création
 
     console.log("🔍 Étape 3: Vérifier si processus créé\n");
 
@@ -83,7 +83,7 @@ async function testConfirmationDetection() {
     } else {
       const process = processSnapshot.docs[0].data();
       console.log("✅ SUCCÈS: Processus créé!");
-      console.log(`\n📋 Détails du processus:`);
+      console.log("\n📋 Détails du processus:");
       console.log(`  - ID: ${processSnapshot.docs[0].id}`);
       console.log(`  - Titre: ${process.title}`);
       console.log(`  - Status: ${process.status}`);
@@ -109,12 +109,12 @@ async function testConfirmationDetection() {
 
     // Cleanup
     console.log("🧹 Cleanup: Suppression des données de test...");
-    
+
     const messagesToDelete = await db
       .collection("messages")
       .where("sessionId", "==", sessionId)
       .get();
-    
+
     for (const doc of messagesToDelete.docs) {
       await doc.ref.delete();
     }
@@ -124,7 +124,6 @@ async function testConfirmationDetection() {
     }
 
     console.log("✅ Cleanup terminé\n");
-
   } catch (error) {
     console.error("❌ Erreur durant le test:", error);
   }

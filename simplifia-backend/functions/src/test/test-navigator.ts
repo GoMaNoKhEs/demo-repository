@@ -41,7 +41,7 @@ async function testFormMapping() {
     typeLogement: "Locataire",
     loyer: 850,
     email: "marie.dupont@example.com",
-    telephone: "06 12 34 56 78"
+    telephone: "06 12 34 56 78",
   };
 
   try {
@@ -74,7 +74,6 @@ async function testFormMapping() {
     } else {
       console.log("\n❌ Test ÉCHOUÉ: mappedData vide");
     }
-
   } catch (error) {
     console.error("❌ Erreur test mapping:", error);
   }
@@ -131,7 +130,6 @@ async function testNavigatorCAFSuccess() {
     // Vérifier les logs Firestore
     const activities = await navigator.getProcessActivities(processId);
     console.log(`\n📊 Logs Firestore: ${activities.length} activité(s) trouvée(s)`);
-
   } catch (error) {
     console.error("❌ Erreur test:", error);
   }
@@ -182,7 +180,6 @@ async function testNavigatorANTSSuccess() {
     } else {
       console.log("\n❌ Test ÉCHOUÉ: Format numéro invalide");
     }
-
   } catch (error) {
     console.error("❌ Erreur test:", error);
   }
@@ -233,7 +230,6 @@ async function testNavigatorPoleEmploiSuccess() {
     } else {
       console.log("\n❌ Test ÉCHOUÉ");
     }
-
   } catch (error) {
     console.error("❌ Erreur test:", error);
   }
@@ -279,11 +275,11 @@ async function testNavigatorURSSAFSuccess() {
 
     if (result.success) {
       console.log("\n✅ Test RÉUSSI: Navigation URSSAF success");
-      
+
       // Vérifier les activités
       const activities = await navigator.getProcessActivities(processId);
       if (activities.length > 0) {
-        console.log(`✅ Activité loggée dans Firestore`);
+        console.log("✅ Activité loggée dans Firestore");
         console.log(`   - ProcessId: ${activities[0].processId}`);
         console.log(`   - Statut: ${activities[0].statut}`);
         console.log(`   - Durée: ${activities[0].duration}ms`);
@@ -291,7 +287,6 @@ async function testNavigatorURSSAFSuccess() {
     } else {
       console.log("\n❌ Test ÉCHOUÉ");
     }
-
   } catch (error) {
     console.error("❌ Erreur test:", error);
   }
@@ -343,7 +338,6 @@ async function testNavigatorCAFError() {
     } else {
       console.log("\n❌ Test ÉCHOUÉ: Devrait retourner une erreur");
     }
-
   } catch (error) {
     console.error("❌ Erreur test:", error);
   }

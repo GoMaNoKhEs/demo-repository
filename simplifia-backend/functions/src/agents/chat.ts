@@ -65,7 +65,7 @@ export class ChatAgent {
 
       // Si prêt mais pas encore confirmé → demander confirmation explicite
       if (intentAnalysis.readyToStart && !intentAnalysis.userConfirmed && intentAnalysis.confidence > 0.7) {
-        console.log(`[ChatAgent] Ready but not confirmed - asking for confirmation`);
+        console.log("[ChatAgent] Ready but not confirmed - asking for confirmation");
         const collectedInfoSummary = Object.entries(intentAnalysis.collectedInfo || {})
           .filter(([_, value]) => value !== null && value !== "")
           .map(([key, value]) => `✓ ${this.formatFieldName(key)}: ${value}`)
@@ -96,7 +96,7 @@ ${collectedInfoSummary}
         .collection("messages")
         .where("sessionId", "==", sessionId)
         .get();
-      
+
       // +1 pour inclure le message utilisateur actuel (pas encore sauvegardé dans messages)
       // +1 pour le message agent qu'on va créer
       const messageCount = messagesSnapshot.size + 2;
@@ -104,9 +104,9 @@ ${collectedInfoSummary}
       // Forcer proposition après 8 messages
       if (messageCount >= 8 && !intentAnalysis.readyToStart) {
         // Construire message avec infos manquantes lisibles
-        const missingInfoText = intentAnalysis.missingInfo && intentAnalysis.missingInfo.length > 0
-          ? intentAnalysis.missingInfo.map((info: string) => `- ${info}`).join("\n")
-          : "quelques informations complémentaires";
+        const missingInfoText = intentAnalysis.missingInfo && intentAnalysis.missingInfo.length > 0 ?
+          intentAnalysis.missingInfo.map((info: string) => `- ${info}`).join("\n") :
+          "quelques informations complémentaires";
 
         const collectedInfoText = Object.entries(intentAnalysis.collectedInfo || {})
           .filter(([_, value]) => value !== null && value !== "")
@@ -382,21 +382,35 @@ Analyse et retourne UNIQUEMENT ce JSON (pas de markdown):
   "confidence": 0.0-1.0,
   "missingInfo": ["info manquante 1", "info 2"],
   "collectedInfo": {
-    "situation": "étudiant/salarié/etc ou null",
-    "logement": "locataire/propriétaire ou null",
-    "revenus": "montant approximatif ou null",
-    "ville": "nom ville ou null"
+    "nom": "nom de famille ou null",
+    "prenom": "prénom ou null",
+    "email": "adresse email ou null",
+    "telephone": "numéro de téléphone ou null",
+    "dateNaissance": "date de naissance (format JJ/MM/AAAA) ou null",
+    "situation": "étudiant/salarié/demandeur d'emploi/retraité ou null",
+    "logement": "locataire/propriétaire/colocataire/sous-locataire ou null",
+    "adresseComplete": "adresse complète du logement (rue, code postal, ville) ou null",
+    "ville": "nom ville ou null",
+    "codePostal": "code postal ou null",
+    "loyer": "montant du loyer mensuel (nombre) ou null",
+    "charges": "montant des charges (nombre) ou null",
+    "revenus": "revenus mensuels nets (nombre) ou null",
+    "nomBailleur": "nom du propriétaire/bailleur ou null",
+    "dateEntree": "date d'entrée dans le logement (format MM/AAAA) ou null",
+    "surfaceLogement": "surface en m² (nombre) ou null",
+    "numeroSecu": "numéro de sécurité sociale (optionnel) ou null",
+    "etablissement": "nom établissement scolaire/entreprise (si étudiant/salarié) ou null"
   }
 }
 
 Critères pour readyToStart = true:
 - La démarche est clairement identifiée
-- Au moins 2-3 infos essentielles collectées
+- Au moins 5-6 infos essentielles collectées parmi: nom, prénom, email, situation, logement, revenus, ville
 - L'utilisateur semble avoir répondu aux questions principales
 
 Critères pour userConfirmed = true:
 - L'utilisateur confirme EXPLICITEMENT vouloir créer le dossier
-- Expressions OUI: "oui", "ok", "d'accord", "vas-y", "lance", "je veux", "crée", "démarre", "go", "c'est bon"
+- Expressions OUI: "oui", "ok", "d'accord", "vas-y", "lance", "je veux", "crée", "démarre", "go", "c'est bon", "c'est parti"
 - Expressions NON (hésitations): "oui mais...", "peut-être", "je sais pas", "attends"
 - IMPORTANT: Si l'utilisateur dit "lance le processus" ou "fais-le" → userConfirmed = TRUE
 
@@ -404,7 +418,13 @@ EXEMPLES:
 - "Oui je veux créer mon dossier" → userConfirmed = true
 - "Lance le processus toi-même" → userConfirmed = true  
 - "Vas-y crée le dossier" → userConfirmed = true
-- "Je pense mais j'hésite" → userConfirmed = false`;
+- "Je pense mais j'hésite" → userConfirmed = false
+
+EXTRACTION INTELLIGENTE:
+- Extraire les informations même si elles sont dans des phrases longues
+- Exemple: "Je m'appelle Jean Dubois, j'habite à Lyon 69003, je paie 850€ de loyer"
+  → nom: "Dubois", prenom: "Jean", ville: "Lyon", codePostal: "69003", loyer: 850
+- Si le loyer est mentionné avec "€/mois" ou "euros par mois", extraire le nombre`;
 
       const response = await this.vertexAI.generateResponse("CHAT", prompt, {
         temperature: 0.2, // Baissé pour plus de déterminisme
@@ -510,8 +530,9 @@ EXEMPLES:
     intentAnalysis: any
   ): Promise<void> {
     const organism = this.getOrganismForDemarche(intentAnalysis.demarche);
-    
-    const confirmationMessage = `🎉 **Félicitations ! Votre dossier ${intentAnalysis.demarche} a été créé avec succès.**
+    const documents = this.getDocumentsList(intentAnalysis.demarche);
+
+    const confirmationMessage = `🎉 **Félicitations ! Votre dossier "${intentAnalysis.demarche}" a été créé avec succès.**
 
 ✅ **SimplifIA s'occupe de tout pour vous :**
 
@@ -519,6 +540,9 @@ EXEMPLES:
 2️⃣ **Remplissage automatique** du formulaire avec vos informations
 3️⃣ **Soumission sécurisée** de votre dossier
 4️⃣ **Suivi en temps réel** de l'avancement
+
+📋 **Documents nécessaires :** 
+${documents}
 
 ⏱️ **Temps estimé :** 2-3 minutes (au lieu de 45 minutes manuellement)
 
@@ -558,13 +582,26 @@ _Vous n'avez rien à faire, SimplifIA gère toute la démarche administrative po
    */
   private formatFieldName(fieldName: string): string {
     const fieldNames: Record<string, string> = {
-      situation: "Situation",
-      logement: "Logement",
-      revenus: "Revenus",
+      nom: "Nom",
+      prenom: "Prénom",
+      email: "Email",
+      telephone: "Téléphone",
+      dateNaissance: "Date de naissance",
+      situation: "Situation professionnelle",
+      logement: "Type de logement",
+      adresseComplete: "Adresse complète",
       ville: "Ville",
+      codePostal: "Code postal",
+      loyer: "Loyer mensuel",
+      charges: "Charges mensuelles",
+      revenus: "Revenus mensuels",
+      nomBailleur: "Nom du bailleur",
+      dateEntree: "Date d'entrée dans le logement",
+      surfaceLogement: "Surface du logement (m²)",
+      numeroSecu: "Numéro de sécurité sociale",
+      etablissement: "Établissement",
       statut: "Statut",
       montant: "Montant",
-      etablissement: "Établissement",
       garant: "Garant",
     };
     return fieldNames[fieldName] || fieldName;
@@ -575,23 +612,155 @@ _Vous n'avez rien à faire, SimplifIA gère toute la démarche administrative po
    */
   private getOrganismForDemarche(demarche: string): string {
     const lowerDemarche = demarche.toLowerCase();
-    
-    if (lowerDemarche.includes("apl") || lowerDemarche.includes("caf") || lowerDemarche.includes("rsa")) {
+
+    // CAF (Caisse d'Allocations Familiales)
+    if (lowerDemarche.includes("apl") || 
+        lowerDemarche.includes("aide au logement") ||
+        lowerDemarche.includes("caf") || 
+        lowerDemarche.includes("rsa") ||
+        lowerDemarche.includes("allocation familiale") ||
+        lowerDemarche.includes("prime d'activité") ||
+        lowerDemarche.includes("aah")) {
       return "CAF (Caisse d'Allocations Familiales)";
     }
-    if (lowerDemarche.includes("passeport") || lowerDemarche.includes("carte d'identité") || lowerDemarche.includes("cni")) {
+    
+    // ANTS (Agence Nationale des Titres Sécurisés)
+    if (lowerDemarche.includes("passeport") || 
+        lowerDemarche.includes("carte d'identité") || 
+        lowerDemarche.includes("cni") ||
+        lowerDemarche.includes("permis de conduire") ||
+        lowerDemarche.includes("titre de voyage")) {
       return "ANTS (Agence Nationale des Titres Sécurisés)";
     }
-    if (lowerDemarche.includes("impôt") || lowerDemarche.includes("taxe")) {
+    
+    // Impôts (Direction Générale des Finances Publiques)
+    if (lowerDemarche.includes("impôt") || 
+        lowerDemarche.includes("taxe") ||
+        lowerDemarche.includes("déclaration revenus") ||
+        lowerDemarche.includes("dgfip")) {
       return "Impots.gouv.fr";
     }
-    if (lowerDemarche.includes("sécurité sociale") || lowerDemarche.includes("ameli")) {
+    
+    // Assurance Maladie / Sécurité Sociale
+    if (lowerDemarche.includes("sécurité sociale") || 
+        lowerDemarche.includes("ameli") ||
+        lowerDemarche.includes("carte vitale") ||
+        lowerDemarche.includes("remboursement") ||
+        lowerDemarche.includes("cpam")) {
       return "Ameli (Sécurité Sociale)";
     }
-    if (lowerDemarche.includes("pole emploi") || lowerDemarche.includes("chômage")) {
+    
+    // Pôle Emploi
+    if (lowerDemarche.includes("pole emploi") || 
+        lowerDemarche.includes("pôle emploi") ||
+        lowerDemarche.includes("chômage") ||
+        lowerDemarche.includes("inscription demandeur") ||
+        lowerDemarche.includes("actualisation")) {
       return "Pôle Emploi";
     }
     
+    // Préfecture
+    if (lowerDemarche.includes("titre de séjour") || 
+        lowerDemarche.includes("carte de séjour") ||
+        lowerDemarche.includes("préfecture") ||
+        lowerDemarche.includes("carte grise") ||
+        lowerDemarche.includes("certificat d'immatriculation")) {
+      return "Préfecture";
+    }
+    
+    // URSSAF
+    if (lowerDemarche.includes("urssaf") || 
+        lowerDemarche.includes("auto-entrepreneur") ||
+        lowerDemarche.includes("micro-entreprise") ||
+        lowerDemarche.includes("cotisation sociale")) {
+      return "URSSAF";
+    }
+
     return "l'organisme administratif concerné";
+  }
+
+  /**
+   * Obtenir la liste des documents nécessaires pour une démarche
+   */
+  private getDocumentsList(demarche: string): string {
+    const lowerDemarche = demarche.toLowerCase();
+    
+    // CAF - APL / Aide au logement
+    if (lowerDemarche.includes("apl") || lowerDemarche.includes("aide au logement")) {
+      return "Bail de location, RIB, Avis d'imposition N-1, Justificatif de domicile, Pièce d'identité";
+    }
+    
+    // CAF - RSA
+    if (lowerDemarche.includes("rsa")) {
+      return "RIB, Justificatif de domicile, Pièce d'identité, Attestation Pôle Emploi (si inscrit), Relevé d'identité bancaire";
+    }
+    
+    // CAF - Allocations familiales
+    if (lowerDemarche.includes("allocation familiale")) {
+      return "Livret de famille, RIB, Justificatif de domicile, Avis d'imposition";
+    }
+    
+    // CAF - Prime d'activité
+    if (lowerDemarche.includes("prime d'activité")) {
+      return "Bulletins de salaire (3 derniers mois), RIB, Avis d'imposition, Justificatif de domicile";
+    }
+    
+    // ANTS - Passeport (renouvellement)
+    if (lowerDemarche.includes("passeport") && (lowerDemarche.includes("renouvellement") || lowerDemarche.includes("renouveler"))) {
+      return "Ancien passeport, Photo d'identité (format ANTS), Justificatif de domicile de moins de 6 mois, Timbre fiscal électronique (86€)";
+    }
+    
+    // ANTS - Passeport (première demande)
+    if (lowerDemarche.includes("passeport")) {
+      return "Acte de naissance, Photo d'identité (format ANTS), Justificatif de domicile de moins de 6 mois, Pièce d'identité, Timbre fiscal électronique (86€)";
+    }
+    
+    // ANTS - Carte d'identité
+    if (lowerDemarche.includes("carte d'identité") || lowerDemarche.includes("cni")) {
+      return "Ancien titre (CNI ou passeport), Photo d'identité (format ANTS), Justificatif de domicile de moins de 6 mois";
+    }
+    
+    // ANTS - Permis de conduire
+    if (lowerDemarche.includes("permis de conduire")) {
+      return "Pièce d'identité, Justificatif de domicile, Photo d'identité (format ANTS), Attestation de formation (code + conduite)";
+    }
+    
+    // Impôts - Déclaration de revenus
+    if (lowerDemarche.includes("déclaration") && lowerDemarche.includes("revenus")) {
+      return "Justificatifs de revenus (salaires, pensions, etc.), Justificatifs de charges déductibles, RIB pour remboursement";
+    }
+    
+    // Sécu - Carte Vitale
+    if (lowerDemarche.includes("carte vitale")) {
+      return "Pièce d'identité, Justificatif de domicile, RIB, Photo d'identité";
+    }
+    
+    // Sécu - Remboursement
+    if (lowerDemarche.includes("remboursement")) {
+      return "Feuille de soins, Ordonnance, Factures, RIB, Carte Vitale";
+    }
+    
+    // Pôle Emploi - Inscription
+    if (lowerDemarche.includes("inscription") && (lowerDemarche.includes("chômage") || lowerDemarche.includes("pole emploi"))) {
+      return "Attestation employeur (certificat de travail), RIB, Pièce d'identité, CV, Justificatif de domicile";
+    }
+    
+    // Préfecture - Titre de séjour
+    if (lowerDemarche.includes("titre de séjour") || lowerDemarche.includes("carte de séjour")) {
+      return "Passeport, Visa (si applicable), Justificatif de domicile, Photos d'identité, Justificatif de ressources, Attestation d'assurance maladie";
+    }
+    
+    // Préfecture - Carte grise
+    if (lowerDemarche.includes("carte grise") || lowerDemarche.includes("certificat d'immatriculation")) {
+      return "Certificat de cession (si occasion), Justificatif de domicile, Pièce d'identité, Contrôle technique (si + 4 ans), Justificatif d'assurance";
+    }
+    
+    // URSSAF - Auto-entrepreneur
+    if (lowerDemarche.includes("auto-entrepreneur") || lowerDemarche.includes("micro-entreprise")) {
+      return "Pièce d'identité, RIB, Justificatif de domicile, Déclaration d'activité (formulaire P0)";
+    }
+    
+    // Défaut générique
+    return "Documents à définir selon votre situation (nous vous guiderons)";
   }
 }

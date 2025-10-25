@@ -109,10 +109,11 @@ export const subscribeToMessages = (
 ): Unsubscribe => {
   console.log('[Realtime] Subscribing to messages for session:', sessionId);
 
+  // 🔥 TEMPORAIRE : Sans orderBy pour tester (en attendant que l'index soit créé)
   const q = query(
     collection(db, 'messages'),
-    where('sessionId', '==', sessionId),
-    orderBy('timestamp', 'asc')
+    where('sessionId', '==', sessionId)
+    // orderBy('timestamp', 'asc')  // Commenté temporairement
   );
 
   return onSnapshot(
@@ -127,6 +128,9 @@ export const subscribeToMessages = (
           timestamp: data.timestamp?.toDate() || new Date(),
         } as ChatMessage;
       });
+      
+      // Trier manuellement en attendant l'index
+      messages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
       
       console.log('[Realtime] Messages updated:', messages.length, 'messages');
       callback(messages);

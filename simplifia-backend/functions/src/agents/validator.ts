@@ -4,13 +4,13 @@ import {VertexAIService} from "../services/vertex-ai";
 
 /**
  * ValidatorAgent
- * 
+ *
  * Responsabilité : Valider les données utilisateur avant soumission
  * - Vérifier formats (email, téléphone, code postal)
  * - Vérifier cohérence (dates, montants)
  * - Vérifier complétude (champs requis)
  * - Vérifier logique métier (revenus > 0, etc.)
- * 
+ *
  * Pattern : Singleton
  */
 export class ValidatorAgent {
@@ -35,7 +35,7 @@ export class ValidatorAgent {
 
   /**
    * Valide les données avant soumission
-   * 
+   *
    * @param processId - ID du processus
    * @param mappedData - Données mappées à valider
    * @returns Résultat de validation avec erreurs/recommandations
@@ -100,25 +100,66 @@ ${JSON.stringify(mappedData, null, 2)}
 
 **RÈGLES DE VALIDATION :**
 
-1. **FORMATS** :
-   - Email : format standard (xxx@yyy.zzz)
-   - Téléphone : 10 chiffres (06/07 pour mobile, 01-05/09 pour fixe)
-   - Code postal : 5 chiffres
-   - Date : format valide et cohérent (pas dans le futur)
+1. **FORMATS OBLIGATOIRES** :
+   - Email : format standard (xxx@yyy.zzz) avec @ et domaine valide
+   - Téléphone : exactement 10 chiffres (06/07 pour mobile, 01-05/09 pour fixe)
+   - Code postal : exactement 5 chiffres entre 01000 et 99999
+   - Date : format ISO (YYYY-MM-DD) ou français (DD/MM/YYYY), cohérent
+   - RIB : format IBAN français (FR + 25 chiffres) ou RIB classique (23 chiffres)
+   - Numéro sécu : 15 chiffres (1/2 + année + mois + département + commune + ordre + clé)
 
-2. **COHÉRENCE** :
-   - Dates : ordre logique (date naissance < date actuelle)
-   - Montants : positifs et réalistes (revenus > 0, loyer < 10000€)
-   - Relations : cohérence entre champs (ex: étudiant + revenus faibles)
+2. **COHÉRENCE TEMPORELLE** :
+   - Date de naissance : entre 1900 et aujourd'hui
+   - Dates futures : interdites (sauf rendez-vous)
+   - Ordre logique : date début < date fin
 
-3. **COMPLÉTUDE** :
-   - Tous les champs "required: true" sont présents
-   - Valeurs non vides (pas "", null, undefined)
+3. **MONTANTS ET VALEURS NUMÉRIQUES** :
+   - Tous les montants doivent être >= 0
+   - Revenus mensuels : entre 0€ et 50000€ (réaliste)
+   - Loyer mensuel : entre 50€ et 10000€ (réaliste)
+   - Âge : entre 0 et 120 ans
 
-4. **LOGIQUE MÉTIER** :
-   - Revenus > 0 (sauf RSA)
-   - Loyer < revenus * 3 (règle APL)
-   - Âge >= 18 ans pour démarches administratives
+4. **RÈGLES MÉTIER FRANÇAISES (CRITICAL)** :
+   
+   **CAF - APL** :
+   - Loyer DOIT être < Revenus × 3 (ratio d'endettement max 33%)
+   - Revenus mensuels > 0 (sauf RSA)
+   - Si propriétaire : APL INTERDITE (réservée locataires)
+   
+   **CAF - RSA** :
+   - Revenus mensuels <= 607€ (plafond RSA 2025 personne seule)
+   - Si revenus > 607€ : INÉLIGIBLE (severity: critical)
+   - Âge >= 25 ans (sauf jeunes parents ou femmes enceintes)
+   
+   **ANTS - Passeport/CNI** :
+   - Photo format ANTS obligatoire (35mm × 45mm, moins de 6 mois)
+   - Justificatif domicile < 6 mois obligatoire
+   - Timbre fiscal : 86€ pour passeport, gratuit pour CNI
+   
+   **Pôle Emploi** :
+   - Attestation employeur OBLIGATOIRE (certificat travail)
+   - RIB OBLIGATOIRE pour versement allocations
+   - Email + téléphone OBLIGATOIRES (contact)
+   
+   **Sécurité Sociale** :
+   - Numéro sécu OBLIGATOIRE (15 chiffres valides)
+   - RIB OBLIGATOIRE pour remboursements
+   
+   **Impôts** :
+   - Numéro fiscal : 13 chiffres obligatoires
+   - Revenu fiscal référence > 0 (sauf non imposable)
+   
+   **Préfecture - Titre séjour** :
+   - Passeport valide OBLIGATOIRE
+   - Justificatif ressources OBLIGATOIRE
+   
+   **URSSAF - Auto-entrepreneur** :
+   - SIRET : 14 chiffres (9 SIREN + 5 NIC)
+   - Activité déclarée OBLIGATOIRE
+
+5. **COMPLÉTUDE** :
+   - Champs "required: true" OBLIGATOIRES (severity: critical si manquant)
+   - Valeurs non vides : pas "", null, undefined
 
 **FORMAT DE RÉPONSE (JSON COMPACT sur UNE SEULE LIGNE) :**
 
@@ -127,26 +168,33 @@ ${JSON.stringify(mappedData, null, 2)}
   "errors": [
     {
       "field": "nom_du_champ",
-      "message": "Description claire de l'erreur",
+      "message": "Description claire de l'erreur avec règle violée",
       "severity": "critical|warning"
     }
   ],
   "recommendations": [
-    "Conseil pratique 1",
-    "Conseil pratique 2"
+    "Conseil pratique précis avec action à faire"
   ],
   "confidence": 0.95
 }
 
 **RÈGLES SEVERITY :**
-- "critical" : Bloque la soumission (format invalide, champ requis manquant)
-- "warning" : N'empêche pas mais à corriger (montant élevé, incohérence mineure)
+- "critical" : Bloque soumission (format invalide, règle métier violée, champ requis manquant)
+- "warning" : N'empêche pas mais attention (montant inhabituel, risque refus)
 
-**EXEMPLE critical :**
-Email "jean.dupontgmail.com" → severity: "critical", message: "Format email invalide (@ manquant)"
+**EXEMPLES CONCRETS :**
 
-**EXEMPLE warning :**
-Revenus 5000€ pour APL → severity: "warning", message: "Revenus élevés, vérifiez éligibilité APL"
+❌ CRITICAL - Format invalide :
+Email "jean.dupontgmail.com" → {"field": "email", "message": "Format email invalide : @ manquant", "severity": "critical"}
+
+❌ CRITICAL - Règle métier violée :
+Revenus 800€, Loyer 900€ pour APL → {"field": "loyer", "message": "Loyer trop élevé (900€) par rapport aux revenus (800€). Ratio maximum : 33% des revenus", "severity": "critical"}
+
+⚠️ WARNING - Valeur inhabituelle :
+Revenus 4500€ pour APL → {"field": "revenus", "message": "Revenus élevés (4500€/mois). Montant APL réduit selon barème CAF", "severity": "warning"}
+
+✅ VALID - Tout OK :
+{"valid": true, "errors": [], "recommendations": ["Données complètes et conformes"], "confidence": 1.0}
 
 Analyse les données et retourne UNIQUEMENT le JSON (pas de texte avant/après).`;
   }
@@ -179,14 +227,14 @@ Analyse les données et retourne UNIQUEMENT le JSON (pas de texte avant/après).
         timestamp: Timestamp.now(),
         agent: "ValidatorAgent",
         statut: validation.valid ? "success" : "error",
-        message: validation.valid
-          ? "✅ Validation réussie - Toutes les données sont valides"
-          : `❌ ${validation.errors.filter((e) => e.severity === "critical").length} erreur(s) critique(s) détectée(s)`,
-        details: validation.errors.length > 0
-          ? validation.errors
+        message: validation.valid ?
+          "✅ Validation réussie - Toutes les données sont valides" :
+          `❌ ${validation.errors.filter((e) => e.severity === "critical").length} erreur(s) critique(s) détectée(s)`,
+        details: validation.errors.length > 0 ?
+          validation.errors
             .map((e) => `[${e.severity.toUpperCase()}] ${e.field}: ${e.message}`)
-            .join("\n")
-          : "Toutes les données sont valides",
+            .join("\n") :
+          "Toutes les données sont valides",
         errorsCount: validation.errors.length,
         criticalErrorsCount: validation.errors.filter((e) => e.severity === "critical").length,
         warningsCount: validation.errors.filter((e) => e.severity === "warning").length,
@@ -199,7 +247,7 @@ Analyse les données et retourne UNIQUEMENT le JSON (pas de texte avant/après).
 
       console.log(`📝 Log validation créé pour processus ${processId}`);
     } catch (error) {
-      console.error(`❌ Erreur lors du logging validation:`, error);
+      console.error("❌ Erreur lors du logging validation:", error);
     }
   }
 
@@ -220,7 +268,7 @@ Analyse les données et retourne UNIQUEMENT le JSON (pas de texte avant/après).
         details: String(error),
       });
     } catch (logError) {
-      console.error(`❌ Erreur lors du logging d'erreur:`, logError);
+      console.error("❌ Erreur lors du logging d'erreur:", logError);
     }
   }
 
@@ -249,7 +297,7 @@ Analyse les données et retourne UNIQUEMENT le JSON (pas de texte avant/après).
 
       return validations;
     } catch (error) {
-      console.error(`❌ Erreur récupération historique validation:`, error);
+      console.error("❌ Erreur récupération historique validation:", error);
       return [];
     }
   }

@@ -1,20 +1,20 @@
 /**
  * TEST DÉMO E2E - Workflow Complet SimplifIA
- * 
+ *
  * Simule le scénario exact de la démo hackathon :
  * 1. User chat avec ChatAgent (demande APL)
  * 2. ChatAgent crée processus automatiquement
  * 3. Orchestrator lance workflow complet
  * 4. Navigator → FormFiller → Validator → Completion
  * 5. Vérification résultat final
- * 
+ *
  * Objectifs :
  * - Workflow complet < 30s
  * - Tous les steps completed
  * - Activity logs créés
  * - Métriques enregistrées
  * - Prêt pour démo live
- * 
+ *
  * Exécution : npx tsx src/test/test-demo-e2e.ts
  */
 
@@ -31,13 +31,13 @@ const colors = {
   yellow: "\x1b[33m",
   blue: "\x1b[34m",
   cyan: "\x1b[36m",
-  magenta: "\x1b[35m"
+  magenta: "\x1b[35m",
 };
 
 // Initialiser Firebase Admin
 if (!admin.apps.length) {
   admin.initializeApp({
-    projectId: "simplifia-hackathon"
+    projectId: "simplifia-hackathon",
   });
 }
 
@@ -128,7 +128,7 @@ async function cleanupTestData(sessionId: string, processId?: string): Promise<v
 
 /**
  * TEST DÉMO E2E COMPLET
- * 
+ *
  * Scénario :
  * Marie, 25 ans, étudiante à Paris
  * Veut une aide au logement APL
@@ -235,7 +235,7 @@ async function testDemoE2E() {
     console.log(`${colors.cyan}   - Status: ${metrics.status}${colors.reset}`);
     console.log(`${colors.cyan}   - Total duration: ${metrics.totalDuration}ms${colors.reset}`);
     console.log(`${colors.cyan}   - Steps exécutés: ${metrics.steps.length}${colors.reset}`);
-    
+
     metrics.steps.forEach((step, idx) => {
       const icon = step.success ? "✅" : "❌";
       console.log(`${colors.cyan}     ${icon} Step ${idx + 1}: ${step.stepName} - ${step.duration}ms${colors.reset}`);
@@ -246,7 +246,7 @@ async function testDemoE2E() {
       throw new Error(`❌ Workflow status incorrect: ${metrics.status}`);
     }
 
-    const failedSteps = metrics.steps.filter(s => !s.success);
+    const failedSteps = metrics.steps.filter((s) => !s.success);
     if (failedSteps.length > 0) {
       throw new Error(`❌ ${failedSteps.length} step(s) échoué(s)`);
     }
@@ -338,7 +338,6 @@ async function testDemoE2E() {
     console.log(`\n${colors.bright}${colors.magenta}🚀 PRÊT POUR DÉMO LIVE !${colors.reset}\n`);
 
     return true;
-
   } catch (error) {
     console.error(`\n${colors.red}❌ TEST DÉMO E2E ÉCHOUÉ${colors.reset}`);
     console.error(`${colors.red}Erreur: ${error}${colors.reset}\n`);

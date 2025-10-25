@@ -1,12 +1,13 @@
 // Agent de simulation d'API - Simule les réponses des sites administratifs
 import { VertexAIService } from "../services/vertex-ai";
+import { EligibilityChecker } from "../utils/eligibility";
 
 /**
  * APISimulatorAgent
- * 
+ *
  * Simule les réponses des sites administratifs (CAF, ANTS, Impôts, Sécu)
  * pour permettre de tester le workflow sans dépendre d'APIs externes.
- * 
+ *
  * Utilise Vertex AI pour générer des réponses JSON réalistes basées sur
  * le contexte de chaque site administratif.
  */
@@ -19,7 +20,7 @@ export class APISimulatorAgent {
 
   /**
    * Simule un appel API à un site administratif
-   * 
+   *
    * @param siteName - Le site à simuler (CAF, ANTS, IMPOTS, SECU, POLE_EMPLOI, PREFECTURE, URSSAF)
    * @param endpoint - L'endpoint API simulé
    * @param userData - Les données utilisateur à envoyer
@@ -30,6 +31,28 @@ export class APISimulatorAgent {
     endpoint: string,
     userData: any
   ): Promise<any> {
+    // ✅ ÉTAPE 1: Vérifier l'éligibilité AVANT simulation
+    console.log(`🔍 Vérification éligibilité pour ${siteName}...`);
+    const eligibilityResult = EligibilityChecker.check(siteName, userData);
+
+    // Si non éligible: retourner erreur immédiatement (pas d'appel IA)
+    if (!eligibilityResult.eligible) {
+      console.log(`❌ Inéligible pour ${siteName}: ${eligibilityResult.reason}`);
+      return {
+        statut: "error",
+        numeroDossier: "",
+        message: eligibilityResult.reason || "Conditions d'éligibilité non remplies",
+        documentsManquants: eligibilityResult.missingDocuments || [],
+        erreurType: "ELIGIBILITY_FAILED",
+      };
+    }
+
+    // Si éligible avec warnings/docs manquants: continuer mais inclure dans réponse
+    console.log(`✅ Éligible pour ${siteName}`);
+    const eligibilityWarnings = eligibilityResult.warnings || [];
+    const missingDocs = eligibilityResult.missingDocuments || [];
+
+    // ✅ ÉTAPE 2: Générer réponse API réaliste via Vertex AI
     const siteContext = this.getSiteContext(siteName);
 
     const prompt = `Tu es l'API du site ${siteName}.
@@ -40,6 +63,11 @@ ${siteContext}
 Endpoint appelé: ${endpoint}
 Données reçues: ${JSON.stringify(userData, null, 2)}
 
+✅ RÉSULTAT VÉRIFICATION ÉLIGIBILITÉ:
+- Éligible: OUI
+${eligibilityWarnings.length > 0 ? `- Avertissements: ${eligibilityWarnings.join(", ")}` : ""}
+${missingDocs.length > 0 ? `- Documents manquants: ${missingDocs.join(", ")}` : ""}
+
 Génère une réponse JSON réaliste comme le ferait vraiment l'API de ce site.
 
 RÈGLES IMPORTANTES:
@@ -47,6 +75,7 @@ RÈGLES IMPORTANTES:
 2. statut "error" = demande REJETÉE (critères non remplis, revenus trop élevés, etc.)
 3. Si success mais documents manquants: mets-les dans documentsManquants ET dans le message
 4. numeroDossier: TOUJOURS générer un numéro (format ${this.getNumeroFormat(siteName)}) sauf si error critique
+${missingDocs.length > 0 ? `5. INCLURE CES DOCUMENTS MANQUANTS: ${missingDocs.join(", ")}` : ""}
 
 STRUCTURE JSON EXACTE:
 {
@@ -55,7 +84,7 @@ STRUCTURE JSON EXACTE:
   "message": "Votre demande a été enregistrée",
   "prochainEtape": "Fournir les documents manquants",
   "delaiEstime": "2 à 4 semaines",
-  "documentsManquants": ["RIB", "Attestation loyer"]
+  "documentsManquants": ${missingDocs.length > 0 ? JSON.stringify(missingDocs) : "[]"}
 }
 
 CRITICAL: 
@@ -73,7 +102,7 @@ Génère le JSON maintenant:`;
 
       // Nettoyer la réponse de façon agressive
       let cleanedResponse = response.trim();
-      
+
       // Enlever markdown si présent
       if (cleanedResponse.includes("```")) {
         cleanedResponse = cleanedResponse
@@ -90,9 +119,9 @@ Génère le JSON maintenant:`;
 
       // Compacter les espaces (mais garder la structure JSON)
       cleanedResponse = cleanedResponse
-        .replace(/\n\s*/g, " ")  // Retours ligne + indentation → espace
-        .replace(/\s{2,}/g, " ")  // Espaces multiples → espace unique
-        .replace(/\s*([{}[\],:])\s*/g, "$1")  // Enlever espaces autour ponctuation JSON
+        .replace(/\n\s*/g, " ") // Retours ligne + indentation → espace
+        .replace(/\s{2,}/g, " ") // Espaces multiples → espace unique
+        .replace(/\s*([{}[\],:])\s*/g, "$1") // Enlever espaces autour ponctuation JSON
         .trim();
 
       // Valider et parser
@@ -105,13 +134,12 @@ Génère le JSON maintenant:`;
 
       console.log(`✅ API Simulator (${siteName}): ${parsedResponse.statut}`);
       return parsedResponse;
-
     } catch (error) {
       console.error(`❌ Invalid JSON from API simulator for ${siteName}:`, error);
 
       // Fallback robuste avec numéro de dossier généré
       const fallbackNumero = `${siteName}-${new Date().getFullYear()}-${Math.floor(Math.random() * 900000) + 100000}`;
-      
+
       return {
         statut: "success",
         numeroDossier: fallbackNumero,

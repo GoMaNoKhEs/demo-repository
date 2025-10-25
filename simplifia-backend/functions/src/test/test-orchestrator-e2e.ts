@@ -1,12 +1,12 @@
 /**
  * Tests E2E ProcessOrchestrator - JOUR 3 MATIN DEV2
- * 
+ *
  * Tests du workflow complet orchestré :
  * 1. Test workflow complet avec données valides
  * 2. Test retry logic (échec puis succès)
  * 3. Test circuit breaker (5 échecs consécutifs)
  * 4. Test métriques de performance
- * 
+ *
  * Exécution : node lib/test/test-orchestrator-e2e.js
  */
 
@@ -22,13 +22,13 @@ const colors = {
   yellow: "\x1b[33m",
   blue: "\x1b[34m",
   cyan: "\x1b[36m",
-  magenta: "\x1b[35m"
+  magenta: "\x1b[35m",
 };
 
 // Initialiser Firebase Admin
 if (!admin.apps.length) {
   admin.initializeApp({
-    projectId: "simplifia-hackathon"
+    projectId: "simplifia-hackathon",
   });
 }
 
@@ -45,7 +45,7 @@ async function testWorkflowComplet() {
   try {
     // 1. Créer un processus de test dans Firestore
     const processId = `test-orchestrator-${Date.now()}`;
-    
+
     const processData = {
       title: "Demande d'APL auprès de la CAF",
       description: "Demande d'aide au logement pour locataire",
@@ -61,34 +61,34 @@ async function testWorkflowComplet() {
         ville: "Lyon",
         code_postal: "69001",
         type_logement: "Locataire",
-        montant_loyer: 650
+        montant_loyer: 650,
       },
       status: "created",
       steps: [
         {
           title: "Analyse de votre demande",
           description: "Nous analysons votre situation",
-          status: "completed"
+          status: "completed",
         },
         {
           title: "Connexion au site CAF",
           description: "Navigation vers le formulaire APL",
-          status: "pending"
+          status: "pending",
         },
         {
           title: "Remplissage du formulaire",
           description: "Mapping de vos données",
-          status: "pending"
+          status: "pending",
         },
         {
           title: "Validation des données",
           description: "Vérification avant soumission",
-          status: "pending"
-        }
+          status: "pending",
+        },
       ],
       currentStepIndex: 0,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     console.log(`${colors.cyan}📝 Création du processus de test: ${processId}${colors.reset}`);
@@ -96,7 +96,7 @@ async function testWorkflowComplet() {
 
     // 2. Exécuter le workflow orchestré
     console.log(`${colors.blue}🚀 Lancement du workflow orchestré...${colors.reset}\n`);
-    
+
     const startTime = Date.now();
     const orchestrator = ProcessOrchestrator.getInstance();
     const metrics = await orchestrator.executeWorkflow(processId);
@@ -119,9 +119,9 @@ async function testWorkflowComplet() {
     console.log(`${colors.green}✅ Nombre de steps: ${metrics.steps.length}${colors.reset}`);
 
     // Vérifier que tous les steps ont réussi
-    const failedSteps = metrics.steps.filter(s => !s.success);
+    const failedSteps = metrics.steps.filter((s) => !s.success);
     if (failedSteps.length > 0) {
-      throw new Error(`❌ ${failedSteps.length} step(s) échoué(s): ${failedSteps.map(s => s.stepName).join(", ")}`);
+      throw new Error(`❌ ${failedSteps.length} step(s) échoué(s): ${failedSteps.map((s) => s.stepName).join(", ")}`);
     }
     console.log(`${colors.green}✅ Tous les steps ont réussi${colors.reset}`);
 
@@ -166,10 +166,9 @@ async function testWorkflowComplet() {
 
     console.log(`\n${colors.bright}${colors.green}✅ TEST 1 RÉUSSI${colors.reset}`);
     console.log(`${colors.cyan}   Durée: ${duration}ms${colors.reset}`);
-    console.log(`${colors.cyan}   Steps: ${metrics.steps.map(s => `${s.stepName} (${s.duration}ms)`).join(", ")}${colors.reset}\n`);
+    console.log(`${colors.cyan}   Steps: ${metrics.steps.map((s) => `${s.stepName} (${s.duration}ms)`).join(", ")}${colors.reset}\n`);
 
     return true;
-
   } catch (error) {
     console.error(`\n${colors.red}❌ TEST 1 ÉCHOUÉ${colors.reset}`);
     console.error(`${colors.red}Erreur: ${error}${colors.reset}\n`);
@@ -188,9 +187,9 @@ async function testRetryLogic() {
   try {
     // Note: Ce test est plus conceptuel car le retry est automatique
     // On vérifie simplement qu'un workflow avec données valides réussit toujours
-    
+
     const processId = `test-retry-${Date.now()}`;
-    
+
     const processData = {
       title: "Test retry avec données valides",
       description: "Doit réussir même avec retry potentiel",
@@ -206,18 +205,18 @@ async function testRetryLogic() {
         ville: "Paris",
         code_postal: "75001",
         type_logement: "Locataire",
-        montant_loyer: 1200
+        montant_loyer: 1200,
       },
       status: "created",
       steps: [
         { title: "Analyse", description: "Analyse", status: "completed" },
         { title: "Navigation", description: "Navigation", status: "pending" },
         { title: "Formulaire", description: "Formulaire", status: "pending" },
-        { title: "Validation", description: "Validation", status: "pending" }
+        { title: "Validation", description: "Validation", status: "pending" },
       ],
       currentStepIndex: 0,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     console.log(`${colors.cyan}📝 Création processus retry test: ${processId}${colors.reset}`);
@@ -234,7 +233,7 @@ async function testRetryLogic() {
     // Vérifier nombre de retries (devrait être 0 pour données valides)
     const totalRetries = metrics.steps.reduce((sum, step) => sum + step.retries, 0);
     console.log(`${colors.cyan}📊 Total retries: ${totalRetries}${colors.reset}`);
-    
+
     if (totalRetries > 5) {
       throw new Error(`Trop de retries: ${totalRetries} (devrait être < 5 pour données valides)`);
     }
@@ -243,7 +242,6 @@ async function testRetryLogic() {
     console.log(`\n${colors.bright}${colors.green}✅ TEST 2 RÉUSSI${colors.reset}\n`);
 
     return true;
-
   } catch (error) {
     console.error(`\n${colors.red}❌ TEST 2 ÉCHOUÉ${colors.reset}`);
     console.error(`${colors.red}Erreur: ${error}${colors.reset}\n`);
@@ -261,7 +259,7 @@ async function testValidationFailure() {
 
   try {
     const processId = `test-validation-fail-${Date.now()}`;
-    
+
     // Données avec erreurs intentionnelles
     const processData = {
       title: "Test validation avec erreurs",
@@ -269,34 +267,34 @@ async function testValidationFailure() {
       userContext: {
         nom: "Erreur",
         prenom: "Test",
-        email: "invalid-email",           // ❌ Email invalide
-        telephone: "123",                 // ❌ Téléphone invalide
-        date_naissance: "2030-01-01",     // ❌ Date future
+        email: "invalid-email", // ❌ Email invalide
+        telephone: "123", // ❌ Téléphone invalide
+        date_naissance: "2030-01-01", // ❌ Date future
         situation_familiale: "Célibataire",
-        nombre_enfants: -5,                // ❌ Négatif
-        revenus_mensuels: -1000,           // ❌ Négatif
+        nombre_enfants: -5, // ❌ Négatif
+        revenus_mensuels: -1000, // ❌ Négatif
         ville: "Test",
-        code_postal: "999",                // ❌ Code postal invalide
+        code_postal: "999", // ❌ Code postal invalide
         type_logement: "Locataire",
-        montant_loyer: 15000               // ⚠️ Très élevé
+        montant_loyer: 15000, // ⚠️ Très élevé
       },
       status: "created",
       steps: [
         { title: "Analyse", description: "Analyse", status: "completed" },
         { title: "Navigation", description: "Navigation", status: "pending" },
         { title: "Formulaire", description: "Formulaire", status: "pending" },
-        { title: "Validation", description: "Validation", status: "pending" }
+        { title: "Validation", description: "Validation", status: "pending" },
       ],
       currentStepIndex: 0,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     console.log(`${colors.cyan}📝 Création processus avec données invalides: ${processId}${colors.reset}`);
     await db.collection("processes").doc(processId).set(processData);
 
     const orchestrator = ProcessOrchestrator.getInstance();
-    
+
     try {
       await orchestrator.executeWorkflow(processId);
       throw new Error("Le workflow aurait dû échouer avec des données invalides");
@@ -323,7 +321,6 @@ async function testValidationFailure() {
     console.log(`\n${colors.bright}${colors.green}✅ TEST 3 RÉUSSI${colors.reset}\n`);
 
     return true;
-
   } catch (error) {
     console.error(`\n${colors.red}❌ TEST 3 ÉCHOUÉ${colors.reset}`);
     console.error(`${colors.red}Erreur: ${error}${colors.reset}\n`);
@@ -350,7 +347,7 @@ async function runAllTests() {
   totalDuration += duration1;
 
   // Pause 2s
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  await new Promise((resolve) => setTimeout(resolve, 2000));
 
   // Test 2
   const start2 = Date.now();
@@ -360,7 +357,7 @@ async function runAllTests() {
   totalDuration += duration2;
 
   // Pause 2s
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  await new Promise((resolve) => setTimeout(resolve, 2000));
 
   // Test 3
   const start3 = Date.now();
@@ -374,14 +371,14 @@ async function runAllTests() {
   console.log(`${colors.bright}${colors.cyan}║                   RÉSUMÉ DES TESTS                    ║${colors.reset}`);
   console.log(`${colors.bright}${colors.cyan}╚════════════════════════════════════════════════════════╝${colors.reset}\n`);
 
-  results.forEach(result => {
+  results.forEach((result) => {
     const icon = result.success ? "✅" : "❌";
     const color = result.success ? colors.green : colors.red;
     console.log(`${icon} ${color}${result.name}: ${result.success ? "RÉUSSI" : "ÉCHOUÉ"}${colors.reset} (${result.duration}ms)`);
   });
 
-  const passed = results.filter(r => r.success).length;
-  const failed = results.filter(r => !r.success).length;
+  const passed = results.filter((r) => r.success).length;
+  const failed = results.filter((r) => !r.success).length;
   const avgDuration = Math.round(totalDuration / results.length);
 
   console.log(`\n${colors.cyan}Tests réussis: ${colors.green}${passed}/${results.length}${colors.reset}`);
@@ -403,7 +400,7 @@ async function runAllTests() {
 }
 
 // Exécuter les tests
-runAllTests().catch(error => {
+runAllTests().catch((error) => {
   console.error(`${colors.red}Erreur fatale:${colors.reset}`, error);
   process.exit(1);
 });

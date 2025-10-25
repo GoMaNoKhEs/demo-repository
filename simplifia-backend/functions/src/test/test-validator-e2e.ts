@@ -1,14 +1,14 @@
 /**
  * 🧪 TESTS E2E - VALIDATORAGENT
- * 
+ *
  * Tests end-to-end pour le ValidatorAgent
  * Vérifie la validation complète des données avant soumission
- * 
+ *
  * Tests :
  * 1. Validation complète avec données valides
  * 2. Gestion d'erreurs multiples (formats, cohérence)
  * 3. Génération de recommandations
- * 
+ *
  * Durée : ~15 secondes (3 tests)
  */
 
@@ -40,7 +40,7 @@ function log(message: string, color: string = colors.reset) {
 }
 
 async function delay(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -73,7 +73,7 @@ async function testValidationComplete() {
     };
 
     log(`\n📝 Processus ID: ${processId}`, colors.blue);
-    log(`📊 Données à valider:`, colors.blue);
+    log("📊 Données à valider:", colors.blue);
     log(JSON.stringify(validData, null, 2), colors.blue);
 
     // Appeler le ValidatorAgent
@@ -175,7 +175,7 @@ async function testGestionErreurs() {
     };
 
     log(`\n📝 Processus ID: ${processId}`, colors.blue);
-    log(`📊 Données invalides:`, colors.blue);
+    log("📊 Données invalides:", colors.blue);
     log(JSON.stringify(invalidData, null, 2), colors.blue);
 
     // Appeler le ValidatorAgent
@@ -199,9 +199,9 @@ async function testGestionErreurs() {
     }
 
     // Vérifier les erreurs critiques attendues
-    const criticalErrors = result.errors.filter(e => e.severity === "critical");
+    const criticalErrors = result.errors.filter((e) => e.severity === "critical");
     const expectedCriticalFields = ["email", "telephone", "code_postal", "revenus_mensuels"];
-    
+
     log("\n🔍 Vérification des erreurs critiques:", colors.blue);
     log(`   - Erreurs critiques trouvées: ${criticalErrors.length}`, colors.cyan);
     log(`   - Champs critiques attendus: ${expectedCriticalFields.join(", ")}`, colors.cyan);
@@ -255,7 +255,7 @@ async function testRecommandations() {
     };
 
     log(`\n📝 Processus ID: ${processId}`, colors.blue);
-    log(`📊 Données pour recommandations:`, colors.blue);
+    log("📊 Données pour recommandations:", colors.blue);
     log(JSON.stringify(dataWithWarnings, null, 2), colors.blue);
 
     // Appeler le ValidatorAgent
@@ -291,16 +291,16 @@ async function testRecommandations() {
     }
 
     // Assertions (moins strictes car les recommandations dépendent du modèle)
-    if (!result.valid && result.errors.every(e => e.severity === "warning")) {
+    if (!result.valid && result.errors.every((e) => e.severity === "warning")) {
       // Ok si seulement des warnings
       log("ℹ️ Validation avec warnings uniquement", colors.blue);
     }
 
     log("\n✅ TEST 3 RÉUSSI", colors.green);
-    return { 
-      success: true, 
-      duration, 
-      recommendationsCount: result.recommendations.length 
+    return {
+      success: true,
+      duration,
+      recommendationsCount: result.recommendations.length,
     };
   } catch (error) {
     log(`\n❌ TEST 3 ÉCHOUÉ: ${error}`, colors.red);

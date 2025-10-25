@@ -5,16 +5,16 @@ import { VertexAIService } from "../services/vertex-ai";
 
 /**
  * NavigatorAgent (avec FormFiller intégré)
- * 
+ *
  * Agent responsable de :
  * 1. Mapper les données utilisateur au format du site (FormFiller)
  * 2. Naviguer sur les sites administratifs (via APISimulator)
  * 3. Soumettre les démarches avec les données mappées
  * 4. Logger chaque action dans Firestore (activity_logs)
  * 5. Mettre à jour le processus avec le numéro de dossier
- * 
+ *
  * Pattern Singleton pour une seule instance partagée
- * 
+ *
  * Note: FormFillerAgent a été fusionné dans NavigatorAgent pour simplifier l'architecture
  */
 export class NavigatorAgent {
@@ -44,7 +44,7 @@ export class NavigatorAgent {
 
   /**
    * Navigue sur un site administratif et soumet une démarche
-   * 
+   *
    * @param processId - ID du processus Firestore
    * @param siteName - Nom du site (CAF, ANTS, IMPOTS, SECU, POLE_EMPLOI, PREFECTURE, URSSAF)
    * @param userData - Données utilisateur à soumettre
@@ -55,7 +55,7 @@ export class NavigatorAgent {
     processId: string,
     siteName: "CAF" | "ANTS" | "IMPOTS" | "SECU" | "POLE_EMPLOI" | "PREFECTURE" | "URSSAF",
     userData: Record<string, any>,
-    endpoint: string = "/submit"
+    endpoint = "/submit"
   ): Promise<{
     success: boolean;
     numeroDossier?: string;
@@ -121,7 +121,7 @@ export class NavigatorAgent {
 
   /**
    * Enregistre l'activité dans Firestore (collection activity_logs)
-   * 
+   *
    * @param processId - ID du processus
    * @param siteName - Nom du site
    * @param apiResponse - Réponse de l'API
@@ -161,7 +161,7 @@ export class NavigatorAgent {
 
   /**
    * Met à jour le processus avec le numéro de dossier obtenu
-   * 
+   *
    * @param processId - ID du processus
    * @param numeroDossier - Numéro de dossier obtenu
    * @param siteName - Nom du site
@@ -191,7 +191,7 @@ export class NavigatorAgent {
 
   /**
    * Récupère l'historique des activités d'un processus
-   * 
+   *
    * @param processId - ID du processus
    * @returns Liste des activités du processus
    */
@@ -234,7 +234,7 @@ export class NavigatorAgent {
   /**
    * Mappe les données utilisateur au format attendu par le site
    * (Anciennement FormFillerAgent.mapUserDataToForm)
-   * 
+   *
    * @param processId - ID du processus
    * @param userData - Données utilisateur brutes
    * @param siteName - Site cible (CAF, ANTS, etc.)
@@ -341,7 +341,7 @@ Champs URSSAF:
 - NOM_ENTREPRISE (string uppercase)
 - SIRET (14 chiffres)
 - ACTIVITE (code APE)
-- CA_ANNUEL (number)`
+- CA_ANNUEL (number)`,
     };
 
     return `Tu es un expert en mapping de données pour les formulaires administratifs français.
@@ -422,6 +422,161 @@ Retourne UNIQUEMENT le JSON (pas de texte avant/après).`;
       console.error("❌ Erreur logging mapping:", error);
     }
   }
+
+  /**
+   * Retourne la structure de formulaire complète pour chaque site
+   * Permet de connaître tous les champs possibles et requis
+   */
+  getFormStructureForSite(
+    siteName: "CAF" | "ANTS" | "IMPOTS" | "SECU" | "POLE_EMPLOI" | "PREFECTURE" | "URSSAF",
+    formType?: string
+  ): FormStructure {
+    const structures: Record<string, FormStructure> = {
+      // ========== CAF ==========
+      CAF_APL: {
+        fields: [
+          { name: "nom", type: "string", required: true },
+          { name: "prenom", type: "string", required: true },
+          { name: "dateNaissance", type: "date", required: true },
+          { name: "numeroAllocataire", type: "string", required: false },
+          { name: "adresse", type: "string", required: true },
+          { name: "codePostal", type: "string", required: true, pattern: "^[0-9]{5}$" },
+          { name: "ville", type: "string", required: true },
+          { name: "loyer", type: "number", required: true },
+          { name: "revenus", type: "number", required: true },
+          { name: "rib", type: "string", required: true, pattern: "^FR[0-9]{25}$" },
+          { name: "bailLocation", type: "file", required: true },
+          { name: "avisImposition", type: "file", required: true },
+        ],
+        siteUrl: "https://www.caf.fr/allocataires/aides-et-demarches/droits-et-prestations/logement/apl",
+      },
+      CAF_RSA: {
+        fields: [
+          { name: "nom", type: "string", required: true },
+          { name: "prenom", type: "string", required: true },
+          { name: "dateNaissance", type: "date", required: true },
+          { name: "numeroAllocataire", type: "string", required: false },
+          { name: "adresse", type: "string", required: true },
+          { name: "revenus", type: "number", required: true },
+          { name: "situation", type: "select", required: true, options: ["celibataire", "marie", "pacse", "divorce"] },
+          { name: "nombreEnfants", type: "number", required: false },
+          { name: "rib", type: "string", required: true },
+          { name: "attestationPoleEmploi", type: "file", required: false },
+        ],
+        siteUrl: "https://www.caf.fr/allocataires/aides-et-demarches/droits-et-prestations/solidarite-et-insertion/rsa",
+      },
+      // ========== ANTS ==========
+      ANTS_PASSEPORT: {
+        fields: [
+          { name: "nom", type: "string", required: true },
+          { name: "prenom", type: "string", required: true },
+          { name: "dateNaissance", type: "date", required: true },
+          { name: "lieuNaissance", type: "string", required: true },
+          { name: "nationalite", type: "string", required: true },
+          { name: "adresse", type: "string", required: true },
+          { name: "codePostal", type: "string", required: true, pattern: "^[0-9]{5}$" },
+          { name: "ville", type: "string", required: true },
+          { name: "photoIdentite", type: "file", required: true, format: "ANTS" },
+          { name: "justificatifDomicile", type: "file", required: true },
+          { name: "ancienPasseport", type: "file", required: false },
+          { name: "timbreFiscal", type: "number", required: true, value: 86 },
+        ],
+        siteUrl: "https://passeport.ants.gouv.fr",
+      },
+      ANTS_CNI: {
+        fields: [
+          { name: "nom", type: "string", required: true },
+          { name: "prenom", type: "string", required: true },
+          { name: "dateNaissance", type: "date", required: true },
+          { name: "lieuNaissance", type: "string", required: true },
+          { name: "adresse", type: "string", required: true },
+          { name: "photoIdentite", type: "file", required: true, format: "ANTS" },
+          { name: "justificatifDomicile", type: "file", required: true },
+          { name: "actNaissance", type: "file", required: true },
+        ],
+        siteUrl: "https://carte-identite.ants.gouv.fr",
+      },
+      // ========== PÔLE EMPLOI ==========
+      POLE_EMPLOI_INSCRIPTION: {
+        fields: [
+          { name: "nom", type: "string", required: true },
+          { name: "prenom", type: "string", required: true },
+          { name: "dateNaissance", type: "date", required: true },
+          { name: "numeroSecu", type: "string", required: true, pattern: "^[12][0-9]{14}$" },
+          { name: "adresse", type: "string", required: true },
+          { name: "telephone", type: "string", required: true, pattern: "^0[0-9]{9}$" },
+          { name: "email", type: "email", required: true },
+          { name: "rib", type: "string", required: true },
+          { name: "attestationEmployeur", type: "file", required: true },
+          { name: "pieceIdentite", type: "file", required: true },
+          { name: "cv", type: "file", required: false },
+        ],
+        siteUrl: "https://www.pole-emploi.fr/candidat/inscription",
+      },
+      // ========== SÉCURITÉ SOCIALE ==========
+      SECU_CARTE_VITALE: {
+        fields: [
+          { name: "nom", type: "string", required: true },
+          { name: "prenom", type: "string", required: true },
+          { name: "numeroSecu", type: "string", required: true, pattern: "^[12][0-9]{14}$" },
+          { name: "dateNaissance", type: "date", required: true },
+          { name: "adresse", type: "string", required: true },
+          { name: "photoIdentite", type: "file", required: true },
+          { name: "rib", type: "string", required: true },
+        ],
+        siteUrl: "https://www.ameli.fr",
+      },
+      // ========== IMPÔTS ==========
+      IMPOTS_DECLARATION: {
+        fields: [
+          { name: "nom", type: "string", required: true },
+          { name: "prenom", type: "string", required: true },
+          { name: "numeroFiscal", type: "string", required: true, pattern: "^[0-9]{13}$" },
+          { name: "revenuFiscalReference", type: "number", required: true },
+          { name: "situationFamiliale", type: "select", required: true },
+          { name: "nombreParts", type: "number", required: true },
+          { name: "adresse", type: "string", required: true },
+        ],
+        siteUrl: "https://www.impots.gouv.fr",
+      },
+      // ========== PRÉFECTURE ==========
+      PREFECTURE_TITRE_SEJOUR: {
+        fields: [
+          { name: "nom", type: "string", required: true },
+          { name: "prenom", type: "string", required: true },
+          { name: "dateNaissance", type: "date", required: true },
+          { name: "nationalite", type: "string", required: true },
+          { name: "passeport", type: "file", required: true },
+          { name: "justificatifDomicile", type: "file", required: true },
+          { name: "justificatifRessources", type: "file", required: true },
+          { name: "photoIdentite", type: "file", required: true },
+        ],
+        siteUrl: "https://administration-etrangers-en-france.interieur.gouv.fr",
+      },
+      // ========== URSSAF ==========
+      URSSAF_AUTO_ENTREPRENEUR: {
+        fields: [
+          { name: "nom", type: "string", required: true },
+          { name: "prenom", type: "string", required: true },
+          { name: "dateNaissance", type: "date", required: true },
+          { name: "numeroSecu", type: "string", required: true },
+          { name: "adresse", type: "string", required: true },
+          { name: "activite", type: "string", required: true },
+          { name: "rib", type: "string", required: true },
+          { name: "pieceIdentite", type: "file", required: true },
+        ],
+        siteUrl: "https://www.autoentrepreneur.urssaf.fr",
+      },
+    };
+
+    // Déterminer la clé basée sur siteName + formType
+    const key = formType ? `${siteName}_${formType.toUpperCase()}` : `${siteName}_DEFAULT`;
+    
+    return structures[key] || structures[`${siteName}_APL`] || {
+      fields: [],
+      siteUrl: `https://www.${siteName.toLowerCase()}.fr`,
+    };
+  }
 }
 
 /**
@@ -432,4 +587,25 @@ export interface FormMappingResult {
   missingFields: string[];
   warnings: string[];
   confidence: number;
+}
+
+/**
+ * Interface de structure de formulaire
+ */
+export interface FormStructure {
+  fields: FormField[];
+  siteUrl: string;
+}
+
+/**
+ * Interface d'un champ de formulaire
+ */
+export interface FormField {
+  name: string;
+  type: "string" | "number" | "date" | "email" | "select" | "file";
+  required: boolean;
+  pattern?: string;
+  options?: string[];
+  format?: string;
+  value?: any;
 }

@@ -1,9 +1,9 @@
 /**
  * Script de test pour APISimulatorAgent
- * 
+ *
  * Tests manuels pour vérifier les réponses simulées
  * des différents sites administratifs
- * 
+ *
  * Usage:
  * cd simplifia-backend/functions
  * npm run build

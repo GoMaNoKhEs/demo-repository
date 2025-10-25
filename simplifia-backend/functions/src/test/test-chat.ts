@@ -175,14 +175,14 @@ async function testChatFullConversation() {
 
     // Vérifier userContext
     if (process.userContext) {
-      console.log(`\n📋 UserContext collecté:`);
+      console.log("\n📋 UserContext collecté:");
       console.log(JSON.stringify(process.userContext, null, 2));
     }
 
     // Vérifier que Step 0 est completed
     const step0 = process.steps[0];
     if (step0 && step0.status === "completed") {
-      console.log(`\n✅ Step 0 (Analyse Chat) marqué "completed"`);
+      console.log("\n✅ Step 0 (Analyse Chat) marqué \"completed\"");
     } else {
       console.log(`\n⚠️  Step 0 status: ${step0?.status || "N/A"}`);
     }
@@ -328,7 +328,7 @@ async function testMessageLimit() {
       return false;
     }
 
-    console.log(`\n💬 Dernier message agent:`);
+    console.log("\n💬 Dernier message agent:");
     console.log(`"${lastAgentMessage.content}"`);
 
     // Vérifier que le message contient une proposition OU un résumé des infos collectées
@@ -411,7 +411,7 @@ async function testIntentAnalysis() {
       return false;
     }
 
-    console.log(`\n📋 UserContext collecté:`);
+    console.log("\n📋 UserContext collecté:");
     console.log(JSON.stringify(process.userContext, null, 2));
 
     // Vérifier que les infos clés ont été extraites
@@ -489,7 +489,7 @@ async function testEmptyHistory() {
       return false;
     }
 
-    console.log(`\n💬 Réponse agent:`);
+    console.log("\n💬 Réponse agent:");
     console.log(`"${agentMessages[0].content}"`);
 
     console.log("\n" + "=".repeat(70));
@@ -548,7 +548,7 @@ async function testTopicChange() {
       return false;
     }
 
-    console.log(`\n💬 Réponse agent au changement:`);
+    console.log("\n💬 Réponse agent au changement:");
     console.log(`"${lastAgentMessage.content}"`);
 
     // Vérifier que l'agent accuse réception du changement

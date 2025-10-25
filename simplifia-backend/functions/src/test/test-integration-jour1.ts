@@ -88,7 +88,7 @@ async function cleanupTestData(sessionId: string, processId?: string): Promise<v
 
 /**
  * TEST INTÉGRATION JOUR 1 : ChatAgent → Navigator
- * 
+ *
  * Scénario complet :
  * 1. ChatAgent (DEV1) : User chat → Processus créé
  * 2. Navigator (DEV2) : Lit le processus → Mappe données → Soumet
@@ -144,7 +144,7 @@ async function testIntegrationJour1() {
     }
 
     processId = process.id;
-    console.log(`\n✅ PARTIE 1 RÉUSSIE: Processus créé par DEV1`);
+    console.log("\n✅ PARTIE 1 RÉUSSIE: Processus créé par DEV1");
     console.log(`   - ID: ${processId}`);
     console.log(`   - Titre: ${process.title}`);
     console.log(`   - Status: ${process.status}`);
@@ -204,7 +204,7 @@ async function testIntegrationJour1() {
       return false;
     }
 
-    console.log(`\n✅ PARTIE 2 RÉUSSIE: Navigator a traité le processus`);
+    console.log("\n✅ PARTIE 2 RÉUSSIE: Navigator a traité le processus");
     console.log(`   - Step 1 status: ${finalProcess.steps[1].status}`);
 
     // ====================================================================

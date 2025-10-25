@@ -185,33 +185,39 @@ export const useSessionManager = (userId?: string) => {
    * Initialisation : charger ou créer session
    */
   useEffect(() => {
+    // ⚠️ IMPORTANT : Ne s'exécute que si userId est défini
+    if (!userId) {
+      console.log('[SessionManager] ⏳ Waiting for userId...');
+      return;
+    }
+
     const existingSessions = loadSessions();
     setSessions(existingSessions);
 
     // Si aucune session active, créer une nouvelle
     if (!currentSessionId) {
-      if (existingSessions.length > 0) {
-        // Charger la plus récente
-        setCurrentSessionId(existingSessions[0].id);
-      } else {
-        // Créer première session
-        const newId = generateSessionId();
-        const now = new Date().toISOString();
-        const newSession: StoredSession = {
-          id: newId,
-          userId: userId || 'demo',
-          title: 'Nouvelle conversation',
-          createdAt: now,
-          lastMessageAt: now,
-          messageCount: 0,
-        };
-        saveSessions([newSession]);
-        setSessions([newSession]);
-        setCurrentSessionId(newId);
-      }
+      // 🔥 FIX TEMPORAIRE : Toujours créer une NOUVELLE session (pour debug)
+      // TODO: Restaurer la logique de chargement d'ancienne session plus tard
+      console.log('[SessionManager] Creating NEW session (ignoring existing sessions for now)');
+      
+      const newId = generateSessionId();
+      const now = new Date().toISOString();
+      const newSession: StoredSession = {
+        id: newId,
+        userId: userId || 'demo',
+        title: 'Nouvelle conversation',
+        createdAt: now,
+        lastMessageAt: now,
+        messageCount: 0,
+      };
+      saveSessions([newSession]);
+      setSessions([newSession]);
+      setCurrentSessionId(newId);
+      
+      console.log('[SessionManager] ✅ New session created:', newId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Seulement au mount initial
+  }, [userId]); // 🔥 CHANGEMENT : Dépendance sur userId au lieu de []
 
   return {
     currentSessionId,
