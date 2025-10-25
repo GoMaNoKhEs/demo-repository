@@ -1,0 +1,53 @@
+{
+  "scenario": "voyage_espagne",
+  "confidence": 85,
+  "title": "Préparation d'un voyage en Espagne",
+  "description": "En raison de votre départ le 15 juin pour un séjour de deux semaines en Espagne, vous devez effectuer certaines démarches administratives pour assurer votre sécurité et votre bien-être pendant votre voyage.",
+  "requiredDocuments": [
+    {
+      "name": "Carte d'identité",
+      "required": true
+    },
+    {
+      "name": "Passeport (si nécessaire)",
+      "required": true
+    },
+    {
+      "name": "Assurance voyage",
+      "required": true
+    }
+  ],
+  "steps": [
+    {
+      "id": "1",
+      "title": "Vérifier les conditions d'entrée en Espagne",
+      "description": "Consulter le site web du ministère français des Affaires étrangères et de l'Europe pour les dernières informations sur les restrictions de voyage et les recommandations de sécurité en Espagne : [https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/](https://www.diplomatie.gouv.fr/fr/conseils-aux-voyageurs/)"
+    },
+    {
+      "id": "2",
+      "title": "Effectuer une déclaration aux autorités fiscales",
+      "description": "Si vous effectuez des achats supérieurs à 100€, il est impératif de faire la déclaration de TVA. Vous pouvez le faire en ligne sur le site impots.gouv.fr."
+    },
+    {
+      "id": "3",
+      "title": "Souscrire une assurance voyage",
+      "description": "L'assurance voyage est fortement recommandée pour couvrir les frais médicaux, l'annulation de voyage, la perte de bagages, etc.  Consultez ameli.fr pour connaître vos droits en matière de soins à l'étranger."
+    },
+    {
+      "id": "4",
+      "title": "Préparer vos papiers d'identité",
+      "description": "Assurez-vous que votre carte d'identité ou votre passeport est valide et qu'il ne risque pas d'expirer pendant votre voyage."
+    },
+    {
+      "id": "5",
+      "title": "Informez votre banque",
+      "description": "Prévenez votre banque de votre voyage afin d'éviter le blocage de vos cartes bancaires."
+    },
+    {
+      "id": "6",
+      "title": "Consulter les informations locales",
+      "description": "Renseignez-vous sur les règles locales, les coutumes et les éventuelles zones à éviter."
+    }
+  ],
+  "riskLevel": "low"
+}

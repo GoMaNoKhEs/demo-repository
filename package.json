@@ -1,9 +1,11 @@
 {
-  "name": "demo-repo",
-  "version": "0.2.0",
-  "description": "A sample package.json",
+  "name": "simplifia_nora_agents",
+  "version": "1.0.0",
+  "description": "SimplifIA - multi-agents IA utilisant Ollama et Gemma3:4b",
+  "type": "module",
+  "license": "MIT",
   "dependencies": {
+    "node-fetch": "^3.3.2",
     "@primer/css": "17.0.1"
-  },
-  "license": "MIT"
+  }
 }
