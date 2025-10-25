@@ -1,6 +1,11 @@
 # 🧪 Guide de Test - SimplifIA
 
-## Tests Backend
+**⚠️ IMPORTANT:** Ce guide concerne les **tests en local** (développement).  
+Pour le **déploiement en PRODUCTION** (Firebase remote), voir `GUIDE_DEPLOIEMENT_PRODUCTION.md`
+
+---
+
+## 🏠 Tests Backend (Local - Développement)
 
 ### 1. Compilation TypeScript
 ```bash
@@ -17,11 +22,22 @@ npm test
 **Résultat attendu:** 25/25 tests passants ✅
 
 ### 3. Démarrage émulateur Firebase (local)
+
+**⚠️ ÉMULATEUR = LOCAL seulement (développement/tests)**
+
 ```bash
 cd simplifia-backend
 firebase emulators:start
 ```
-**Services:** Firestore (8080), Functions (5001), Auth (9099)
+**Services émulés localement:**
+- Firestore: http://localhost:8080
+- Functions: http://localhost:5001
+- Auth: http://localhost:9099
+
+**🚨 Pour la DÉMO et PRODUCTION:**
+- Utiliser Firebase REMOTE (voir GUIDE_DEPLOIEMENT_PRODUCTION.md)
+- Déployer avec `firebase deploy`
+- URL production: https://votre-projet.web.app
 
 ### 4. Test manuel d'un agent
 
