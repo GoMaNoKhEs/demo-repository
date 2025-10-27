@@ -131,6 +131,12 @@ ${JSON.stringify(mappedData, null, 2)}
    - Si revenus > 607€ : INÉLIGIBLE (severity: critical)
    - Âge >= 25 ans (sauf jeunes parents ou femmes enceintes)
    
+   **IMPORTANT - Calcul logique RSA** :
+   - Exemple 1 : Revenus 500€ → 500 <= 607 → **ÉLIGIBLE** 
+   - Exemple 2 : Revenus 607€ → 607 <= 607 → **ÉLIGIBLE** 
+   - Exemple 3 : Revenus 800€ → 800 > 607 → **INÉLIGIBLE** 
+   - NE PAS inverser la logique de comparaison !
+   
    **ANTS - Passeport/CNI** :
    - Photo format ANTS obligatoire (35mm × 45mm, moins de 6 mois)
    - Justificatif domicile < 6 mois obligatoire

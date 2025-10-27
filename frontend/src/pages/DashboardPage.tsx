@@ -204,57 +204,6 @@ export const DashboardPage = () => {
     }, 300);
   }, [setCurrentProcess, setActivityLogs]);
 
-  // Fonction pour se connecter au temps réel
-  const connectRealtime = useCallback(() => {
-    console.log('[Dashboard] Connecting to Firestore realtime...');
-    setIsLoading(true);
-    setConnectionError(null);
-
-    // S'abonner aux mises à jour du processus
-    const unsubscribeProcess = subscribeToProcess(
-      sessionId,
-      (process) => {
-        console.log('[Dashboard] Process received:', process);
-        console.log('[Dashboard] Process ID:', process.id);
-        console.log('[Dashboard] Process status:', process.status);
-        setCurrentProcess(process);
-        setIsLoading(false);
-        
-        // S'abonner aux logs d'activité une fois qu'on a le processId
-        if (process.id) {
-          console.log('[Dashboard] Subscribing to activity_logs for processId:', process.id);
-          const unsubscribeLogs = subscribeToActivityLogs(
-            process.id,
-            (logs) => {
-              console.log('[Dashboard] Activity logs received:', logs.length);
-              console.log('[Dashboard] Activity logs data:', logs);
-              setActivityLogs(logs);
-            },
-            (error) => {
-              console.error('[Dashboard] Logs subscription error:', error);
-              notifications.error('Erreur de chargement des logs');
-            }
-          );
-          
-          return unsubscribeLogs;
-        } else {
-          console.warn('[Dashboard] Process has no ID, cannot subscribe to logs');
-        }
-      },
-      (error) => {
-        console.error('[Dashboard] Process subscription error:', error);
-        setConnectionError(error);
-        setIsLoading(false);
-      }
-    );
-
-    // Cleanup
-    return () => {
-      console.log('[Dashboard] Unsubscribing from realtime');
-      unsubscribeProcess();
-    };
-  }, [sessionId, setCurrentProcess, setActivityLogs, notifications]);
-
   // Effet pour gérer le mode (mock vs realtime) - Pour nouveaux utilisateurs
   useEffect(() => {
     if (!useRealtime) {
@@ -267,6 +216,40 @@ export const DashboardPage = () => {
     } else if (user && sessionId) {
       console.log('[Dashboard] ✅ User authenticated:', user.email);
       console.log('[Dashboard] ✅ Listening to messages for session:', sessionId);
+      
+      // 🔥 AJOUT : S'abonner aux processus créés pour cette session
+      const unsubscribeProcess = subscribeToProcess(
+        sessionId,
+        (process) => {
+          console.log('[Dashboard] 📋 Process received:', process.id, process.status);
+          setCurrentProcess(process);
+          setIsLoading(false);
+          
+          // S'abonner aux activity_logs du processus
+          if (process.id) {
+            console.log('[Dashboard] 📊 Subscribing to activity_logs for processId:', process.id);
+            const unsubscribeLogs = subscribeToActivityLogs(
+              process.id,
+              (logs) => {
+                console.log('[Dashboard] ✅ Activity logs received:', logs.length);
+                setActivityLogs(logs);
+              },
+              (error) => {
+                console.error('[Dashboard] ❌ Logs subscription error:', error);
+                notifications.error('Erreur de chargement des logs');
+              }
+            );
+            
+            // Cleanup des logs quand le composant unmount
+            return () => unsubscribeLogs();
+          }
+        },
+        (error) => {
+          console.error('[Dashboard] ❌ Process subscription error:', error);
+          setConnectionError(error);
+          setIsLoading(false);
+        }
+      );
       
       // Écouter les messages en temps réel pour cette session
       const unsubscribeMessages = subscribeToMessages(
@@ -285,8 +268,9 @@ export const DashboardPage = () => {
       
       // Cleanup
       return () => {
-        console.log('[Dashboard] 🔌 Unsubscribing from messages for session:', sessionId);
+        console.log('[Dashboard] 🔌 Unsubscribing from messages and processes for session:', sessionId);
         unsubscribeMessages();
+        unsubscribeProcess();
       };
     } else {
       console.warn('[Dashboard] ⏳ Waiting for user and sessionId...', { user: !!user, sessionId });
@@ -346,7 +330,7 @@ export const DashboardPage = () => {
     if (!currentProcess || hasShownCelebration) return;
 
     // Vérifier si toutes les étapes sont complétées
-    const allStepsCompleted = currentProcess.steps.every(step => step.status === 'completed');
+    const allStepsCompleted = Array.isArray(currentProcess?.steps) && currentProcess.steps.every(step => step.status === 'completed');
     const isProcessCompleted = currentProcess.status === 'completed' || allStepsCompleted;
 
     if (isProcessCompleted && !hasShownCelebration) {
@@ -378,7 +362,9 @@ export const DashboardPage = () => {
   // Fonction de retry en cas d'erreur
   const handleRetry = () => {
     if (useRealtime) {
-      connectRealtime();
+      // Re-trigger l'effet en changeant un état
+      setIsLoading(true);
+      notifications.info('Reconnexion en cours...');
     } else {
       loadMockData();
     }
@@ -534,17 +520,6 @@ export const DashboardPage = () => {
           flexDirection: 'column',
         }}
       >
-      {/* Debug info */}
-      {!isLoading && !connectionError && !currentProcess && (
-        <Box sx={{ p: 3, bgcolor: 'error.light', color: 'white', borderRadius: 2, m: 2 }}>
-          <Typography variant="h6">⚠️ Debug: Aucun processus chargé</Typography>
-          <Typography variant="body2">
-            useRealtime: {useRealtime.toString()} | 
-            activityLogs: {activityLogs.length} logs
-          </Typography>
-        </Box>
-      )}
-
       {/* Header mobile avec menu hamburger */}
       {isMobile && (
         <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>

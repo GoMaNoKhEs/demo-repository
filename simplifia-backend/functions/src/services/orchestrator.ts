@@ -207,8 +207,11 @@ export class ProcessOrchestrator {
             processData.userContext
           );
 
-          if (!validation.valid) {
-            console.log(`${colors.red}❌ Validation failed: ${validation.errors.length} errors${colors.reset}`);
+          // Filtrer seulement les erreurs critiques
+          const criticalErrors = validation.errors.filter((err) => err.severity === "critical");
+
+          if (!validation.valid && criticalErrors.length > 0) {
+            console.log(`${colors.red}❌ Validation failed: ${criticalErrors.length} critical errors${colors.reset}`);
             validation.errors.forEach((err) => {
               const severity = err.severity === "critical" ? colors.red : colors.yellow;
               console.log(`   ${severity}▪ [${err.severity}] ${err.field}: ${err.message}${colors.reset}`);
@@ -220,11 +223,19 @@ export class ProcessOrchestrator {
             // Marquer processus comme failed
             await this.db.collection("processes").doc(processId).update({
               status: "failed",
-              error: `Validation échouée: ${validation.errors.length} erreurs`,
+              error: `Validation échouée: ${criticalErrors.length} erreurs critiques`,
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
 
-            throw new Error(`Validation failed with ${validation.errors.length} errors`);
+            throw new Error(`Validation failed with ${criticalErrors.length} critical errors`);
+          }
+
+          // Si seulement des warnings, accepter la validation
+          if (!validation.valid && criticalErrors.length === 0) {
+            console.log(`${colors.yellow}⚠️  Validation avec warnings seulement (acceptée)${colors.reset}`);
+            validation.errors.forEach((err) => {
+              console.log(`   ${colors.yellow}▪ [${err.severity}] ${err.field}: ${err.message}${colors.reset}`);
+            });
           }
 
           console.log(`${colors.green}✅ Validation passed with confidence ${validation.confidence}${colors.reset}`);

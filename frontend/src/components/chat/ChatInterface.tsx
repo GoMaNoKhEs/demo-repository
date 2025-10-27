@@ -20,6 +20,12 @@ export const ChatInterface = ({ sessionId, userId }: ChatInterfaceProps) => {
   const { chatMessages, addChatMessage, isAgentThinking } = useAppStore();
   const notifications = useNotifications();
 
+  // 🔥 LOG : Tracer les messages reçus du store
+  useEffect(() => {
+    console.log('[ChatInterface] 💬 chatMessages updated from store:', chatMessages.length, 'messages');
+    console.log('[ChatInterface] 💬 chatMessages data:', chatMessages);
+  }, [chatMessages]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };

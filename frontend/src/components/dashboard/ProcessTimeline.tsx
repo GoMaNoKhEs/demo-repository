@@ -19,8 +19,8 @@ export const ProcessTimeline = ({ steps, currentStepIndex }: ProcessTimelineProp
   // Ref pour suivre si le confetti a déjà été déclenché
   const confettiTriggered = useRef(false);
 
-  // Vérifier si toutes les étapes sont complétées
-  const allStepsCompleted = steps.every(step => step.status === 'completed');
+  // 🔥 FIX : Vérifier que steps est un tableau avant d'appeler .every()
+  const allStepsCompleted = Array.isArray(steps) && steps.every(step => step.status === 'completed');
 
   // Déclencher le confetti quand toutes les étapes sont complétées (une seule fois)
   useEffect(() => {
@@ -100,7 +100,8 @@ export const ProcessTimeline = ({ steps, currentStepIndex }: ProcessTimelineProp
     return `${minutes}m ${seconds}s`;
   };
 
-  const sortedSteps = [...steps].sort((a, b) => a.order - b.order);
+  // 🔥 FIX : Vérifier que steps est un tableau avant de créer sortedSteps
+  const sortedSteps = Array.isArray(steps) ? [...steps].sort((a, b) => a.order - b.order) : [];
 
   return (
     <Box sx={{ position: 'relative', py: 2 }}>
