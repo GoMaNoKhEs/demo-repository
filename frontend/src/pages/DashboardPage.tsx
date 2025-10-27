@@ -48,6 +48,7 @@ export const DashboardPage = () => {
     addChatMessage,
     chatMessages,
     setChatMessages,
+    setAgentThinking,
   } = useAppStore();
   
   const notifications = useNotifications();
@@ -258,6 +259,16 @@ export const DashboardPage = () => {
           console.log('[Dashboard] 📨 Messages received:', messages.length);
           // Mettre à jour les messages dans le store
           setChatMessages(messages);
+          
+          // Détecter si l'agent réfléchit : si le dernier message est un message user
+          if (messages.length > 0) {
+            const lastMessage = messages[messages.length - 1];
+            const isThinking = lastMessage.role === 'user';
+            setAgentThinking(isThinking);
+            console.log('[Dashboard] 🤔 Agent thinking:', isThinking, '(last message:', lastMessage.role, ')');
+          } else {
+            setAgentThinking(false);
+          }
         },
         (error) => {
           console.error('[Dashboard] ❌ Messages subscription error:', error);
