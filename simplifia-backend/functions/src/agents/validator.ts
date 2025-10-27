@@ -4,13 +4,13 @@ import {VertexAIService} from "../services/vertex-ai";
 
 /**
  * ValidatorAgent
- * 
+ *
  * Responsabilité : Valider les données utilisateur avant soumission
  * - Vérifier formats (email, téléphone, code postal)
  * - Vérifier cohérence (dates, montants)
  * - Vérifier complétude (champs requis)
  * - Vérifier logique métier (revenus > 0, etc.)
- * 
+ *
  * Pattern : Singleton
  */
 export class ValidatorAgent {
@@ -18,6 +18,9 @@ export class ValidatorAgent {
   private vertexAI: VertexAIService;
   private firestore: FirebaseFirestore.Firestore;
 
+  /**
+   * Constructeur privé (Singleton)
+   */
   private constructor() {
     this.vertexAI = new VertexAIService();
     this.firestore = getFirestore();
@@ -35,7 +38,7 @@ export class ValidatorAgent {
 
   /**
    * Valide les données avant soumission
-   * 
+   *
    * @param processId - ID du processus
    * @param mappedData - Données mappées à valider
    * @returns Résultat de validation avec erreurs/recommandations
@@ -179,14 +182,14 @@ Analyse les données et retourne UNIQUEMENT le JSON (pas de texte avant/après).
         timestamp: Timestamp.now(),
         agent: "ValidatorAgent",
         statut: validation.valid ? "success" : "error",
-        message: validation.valid
-          ? "✅ Validation réussie - Toutes les données sont valides"
-          : `❌ ${validation.errors.filter((e) => e.severity === "critical").length} erreur(s) critique(s) détectée(s)`,
-        details: validation.errors.length > 0
-          ? validation.errors
+        message: validation.valid ?
+          "✅ Validation réussie - Toutes les données sont valides" :
+          `❌ ${validation.errors.filter((e) => e.severity === "critical").length} erreur(s) critique(s) détectée(s)`,
+        details: validation.errors.length > 0 ?
+          validation.errors
             .map((e) => `[${e.severity.toUpperCase()}] ${e.field}: ${e.message}`)
-            .join("\n")
-          : "Toutes les données sont valides",
+            .join("\n") :
+          "Toutes les données sont valides",
         errorsCount: validation.errors.length,
         criticalErrorsCount: validation.errors.filter((e) => e.severity === "critical").length,
         warningsCount: validation.errors.filter((e) => e.severity === "warning").length,
@@ -199,7 +202,7 @@ Analyse les données et retourne UNIQUEMENT le JSON (pas de texte avant/après).
 
       console.log(`📝 Log validation créé pour processus ${processId}`);
     } catch (error) {
-      console.error(`❌ Erreur lors du logging validation:`, error);
+      console.error("❌ Erreur lors du logging validation:", error);
     }
   }
 
@@ -220,7 +223,7 @@ Analyse les données et retourne UNIQUEMENT le JSON (pas de texte avant/après).
         details: String(error),
       });
     } catch (logError) {
-      console.error(`❌ Erreur lors du logging d'erreur:`, logError);
+      console.error("❌ Erreur lors du logging d'erreur:", logError);
     }
   }
 
@@ -249,7 +252,7 @@ Analyse les données et retourne UNIQUEMENT le JSON (pas de texte avant/après).
 
       return validations;
     } catch (error) {
-      console.error(`❌ Erreur récupération historique validation:`, error);
+      console.error("❌ Erreur récupération historique validation:", error);
       return [];
     }
   }

@@ -14,7 +14,7 @@ export const AI_MODELS = {
     model: "gemini-2.5-flash",
     location: "us-central1",
     temperature: 0.1,
-    maxTokens: 2048,  // Augmenté pour éviter troncature JSON
+    maxTokens: 2048, // Augmenté pour éviter troncature JSON
     topP: 0.9,
     topK: 20,
   },

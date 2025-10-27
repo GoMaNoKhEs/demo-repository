@@ -3,23 +3,26 @@ import { VertexAIService } from "../services/vertex-ai";
 
 /**
  * APISimulatorAgent
- * 
+ *
  * Simule les réponses des sites administratifs (CAF, ANTS, Impôts, Sécu)
  * pour permettre de tester le workflow sans dépendre d'APIs externes.
- * 
+ *
  * Utilise Vertex AI pour générer des réponses JSON réalistes basées sur
  * le contexte de chaque site administratif.
  */
 export class APISimulatorAgent {
   private vertexAI: VertexAIService;
 
+  /**
+   * Constructeur du simulateur d'API
+   */
   constructor() {
     this.vertexAI = new VertexAIService();
   }
 
   /**
    * Simule un appel API à un site administratif
-   * 
+   *
    * @param siteName - Le site à simuler (CAF, ANTS, IMPOTS, SECU, POLE_EMPLOI, PREFECTURE, URSSAF)
    * @param endpoint - L'endpoint API simulé
    * @param userData - Les données utilisateur à envoyer
@@ -49,7 +52,8 @@ RÈGLES IMPORTANTES:
 4. numeroDossier: TOUJOURS générer un numéro (format ${this.getNumeroFormat(siteName)}) sauf si error critique
 
 STRUCTURE JSON EXACTE (format compact sur UNE SEULE LIGNE):
-{"statut":"success ou error","numeroDossier":"format correct","message":"texte court sans retour ligne","prochainEtape":"action suivante","delaiEstime":"délai","documentsManquants":["doc1","doc2"]}
+{"statut":"success ou error","numeroDossier":"format correct","message":"texte court",
+"prochainEtape":"action suivante","delaiEstime":"délai","documentsManquants":["doc1","doc2"]}
 
 CRITICAL: 
 - JSON COMPACT sur UNE SEULE LIGNE (pas de retours à la ligne, pas d'indentation)
@@ -76,9 +80,9 @@ JSON:`;
       // Supprimer TOUS les retours à la ligne et espaces multiples
       // pour forcer le JSON sur une seule ligne
       cleanedResponse = cleanedResponse
-        .replace(/\n/g, " ")  // Remplacer \n par espace
-        .replace(/\r/g, " ")  // Remplacer \r par espace
-        .replace(/\s{2,}/g, " ")  // Compacter espaces multiples
+        .replace(/\n/g, " ") // Remplacer \n par espace
+        .replace(/\r/g, " ") // Remplacer \r par espace
+        .replace(/\s{2,}/g, " ") // Compacter espaces multiples
         .trim();
 
       // Parser le JSON

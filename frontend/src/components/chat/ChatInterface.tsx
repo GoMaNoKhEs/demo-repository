@@ -17,7 +17,7 @@ export const ChatInterface = ({ sessionId, userId }: ChatInterfaceProps) => {
   const [input, setInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { chatMessages, addChatMessage, isAgentThinking } = useAppStore();
+  const { chatMessages, isAgentThinking } = useAppStore();
   const notifications = useNotifications();
 
   const scrollToBottom = () => {
@@ -41,17 +41,15 @@ export const ChatInterface = ({ sessionId, userId }: ChatInterfaceProps) => {
     const textToSend = messageText || input;
     if (!textToSend.trim()) return;
 
-    // Si pas de sessionId, ajouter seulement en local (mode démo)
+    // STRICT : Vérifier que l'utilisateur est connecté
+    if (!userId) {
+      notifications.error('Vous devez être connecté pour envoyer un message');
+      return;
+    }
+
+    // Si pas de sessionId, erreur (ne devrait jamais arriver)
     if (!sessionId) {
-      addChatMessage({
-        id: Date.now().toString(),
-        role: 'user',
-        content: textToSend,
-        timestamp: new Date(),
-      });
-      setInput('');
-      setShowSuggestions(false);
-      notifications.success('Message envoyé (mode démo)');
+      notifications.error('Session invalide - veuillez vous reconnecter');
       return;
     }
 

@@ -380,7 +380,12 @@ Critères pour userConfirmed = true:
       }
 
       const firstMessage = messagesSnapshot.docs[0].data();
-      const userId = firstMessage.userId || "anonymous";
+      const userId = firstMessage.userId;
+
+      // STRICT : userId est obligatoire
+      if (!userId) {
+        throw new Error("userId manquant dans le message - l'utilisateur doit être authentifié");
+      }
 
       // 2. Créer le processus avec steps
       const processData = {

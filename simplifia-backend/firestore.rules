@@ -19,11 +19,16 @@ service cloud.firestore {
 
     // Collection processes
     match /processes/{processId} {
-      allow read: if isAuthenticated() &&
+      // CRITICAL: Les queries doivent TOUJOURS filtrer par userId
+      // Firestore vérifie que TOUS les documents retournés respectent cette règle
+      allow read: if isAuthenticated() && 
                      resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() &&
+      
+      // STRICT : Permettre la création UNIQUEMENT avec le bon userId
+      allow create: if isAuthenticated() && 
                       request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAuthenticated() &&
+      // STRICT : Permettre la modification/suppression UNIQUEMENT par le propriétaire
+      allow update, delete: if isAuthenticated() && 
                                resource.data.userId == request.auth.uid;
 
       // Sous-collection chat_messages

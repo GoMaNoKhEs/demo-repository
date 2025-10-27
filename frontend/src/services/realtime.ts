@@ -6,32 +6,42 @@ import type { Process, ActivityLog, ChatMessage } from '../types';
 /**
  * S'abonner aux mises à jour d'un processus en temps réel
  * @param sessionId - ID de la session utilisateur
+ * @param userId - ID de l'utilisateur authentifié
  * @param callback - Fonction appelée quand le processus est mis à jour
  * @param onError - Fonction appelée en cas d'erreur
  * @returns Fonction de désabonnement
  */
 export const subscribeToProcess = (
   sessionId: string,
+  userId: string,
   callback: (process: Process) => void,
   onError?: (error: Error) => void
 ): Unsubscribe => {
-  console.log('[Realtime] Subscribing to process for session:', sessionId);
+  console.log('[Realtime] 🔍 Subscribing to process for:', { sessionId, userId });
 
   const q = query(
     collection(db, 'processes'),
-    where('sessionId', '==', sessionId)
+    where('sessionId', '==', sessionId),
+    where('userId', '==', userId)  // CRITICAL: Filtrer par userId pour respecter les règles Firestore
   );
 
   return onSnapshot(
     q,
     (snapshot) => {
       if (snapshot.empty) {
-        console.warn('[Realtime] No process found for session:', sessionId);
+        console.log('[Realtime] ℹ️ No process found yet for session:', sessionId);
         return;
       }
 
       snapshot.docs.forEach(doc => {
         const data = doc.data();
+        console.log('[Realtime] 📄 Process data received:', {
+          id: doc.id,
+          userId: data.userId,
+          sessionId: data.sessionId,
+          status: data.status
+        });
+        
         const process: Process = {
           id: doc.id,
           ...data,
@@ -41,12 +51,16 @@ export const subscribeToProcess = (
           completedAt: data.completedAt?.toDate(),
         } as Process;
         
-        console.log('[Realtime] Process updated:', process.id, process.status);
+        console.log('[Realtime] ✅ Process updated:', process.id, process.status);
         callback(process);
       });
     },
     (error) => {
-      console.error('[Realtime] Error subscribing to process:', error);
+      console.error('[Realtime] ❌ ERREUR subscribing to process:', {
+        message: error.message,
+        code: (error as any).code,
+        sessionId
+      });
       onError?.(error);
     }
   );

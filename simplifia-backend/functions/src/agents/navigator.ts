@@ -4,13 +4,13 @@ import { APISimulatorAgent } from "./api-simulator";
 
 /**
  * NavigatorAgent
- * 
+ *
  * Agent responsable de :
  * 1. Naviguer sur les sites administratifs (via APISimulator)
  * 2. Soumettre les démarches avec les données utilisateur
  * 3. Logger chaque action dans Firestore (activity_logs)
  * 4. Mettre à jour le processus avec le numéro de dossier
- * 
+ *
  * Pattern Singleton pour une seule instance partagée
  */
 export class NavigatorAgent {
@@ -38,7 +38,7 @@ export class NavigatorAgent {
 
   /**
    * Navigue sur un site administratif et soumet une démarche
-   * 
+   *
    * @param processId - ID du processus Firestore
    * @param siteName - Nom du site (CAF, ANTS, IMPOTS, SECU, POLE_EMPLOI, PREFECTURE, URSSAF)
    * @param userData - Données utilisateur à soumettre
@@ -49,7 +49,7 @@ export class NavigatorAgent {
     processId: string,
     siteName: "CAF" | "ANTS" | "IMPOTS" | "SECU" | "POLE_EMPLOI" | "PREFECTURE" | "URSSAF",
     userData: Record<string, any>,
-    endpoint: string = "/submit"
+    endpoint = "/submit"
   ): Promise<{
     success: boolean;
     numeroDossier?: string;
@@ -108,14 +108,15 @@ export class NavigatorAgent {
 
       return {
         success: false,
-        message: `Erreur lors de la navigation sur ${siteName}: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+        message: `Erreur lors de la navigation sur ${siteName}: ` +
+          `${error instanceof Error ? error.message : "Erreur inconnue"}`,
       };
     }
   }
 
   /**
    * Enregistre l'activité dans Firestore (collection activity_logs)
-   * 
+   *
    * @param processId - ID du processus
    * @param siteName - Nom du site
    * @param apiResponse - Réponse de l'API
@@ -155,7 +156,7 @@ export class NavigatorAgent {
 
   /**
    * Met à jour le processus avec le numéro de dossier obtenu
-   * 
+   *
    * @param processId - ID du processus
    * @param numeroDossier - Numéro de dossier obtenu
    * @param siteName - Nom du site
@@ -185,7 +186,7 @@ export class NavigatorAgent {
 
   /**
    * Récupère l'historique des activités d'un processus
-   * 
+   *
    * @param processId - ID du processus
    * @returns Liste des activités du processus
    */

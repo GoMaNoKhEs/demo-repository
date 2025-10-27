@@ -189,6 +189,12 @@ export const DashboardPage = () => {
 
   // Fonction pour se connecter au temps réel
   const connectRealtime = useCallback(() => {
+    if (!user) {
+      console.error('[Dashboard] Cannot connect to realtime: user not authenticated');
+      notifications.error('Vous devez être connecté');
+      return;
+    }
+    
     console.log('[Dashboard] Connecting to Firestore realtime...');
     setIsLoading(true);
     setConnectionError(null);
@@ -196,6 +202,7 @@ export const DashboardPage = () => {
     // S'abonner aux mises à jour du processus
     const unsubscribeProcess = subscribeToProcess(
       sessionId,
+      user.uid,  // CRITICAL: Passer userId
       (process) => {
         console.log('[Dashboard] Process received:', process);
         setCurrentProcess(process);
@@ -230,7 +237,7 @@ export const DashboardPage = () => {
       console.log('[Dashboard] Unsubscribing from realtime');
       unsubscribeProcess();
     };
-  }, [sessionId, setCurrentProcess, setActivityLogs, notifications]);
+  }, [sessionId, user, setCurrentProcess, setActivityLogs, notifications]);
 
   // Effet pour gérer le mode (mock vs realtime) - Pour nouveaux utilisateurs
   useEffect(() => {
@@ -243,18 +250,55 @@ export const DashboardPage = () => {
       }, 1000);
     } else if (user) {
       console.log('[Dashboard] User authenticated:', user.email);
-      console.log('[Dashboard] Ready for conversation - listening to messages');
+      console.log('[Dashboard] Ready for conversation - listening to messages and processes');
       
-      // Nouvel utilisateur : écouter les messages en temps réel
+      console.log('[Dashboard] 🚀 User authenticated, setting up realtime listeners...');
+      console.log('[Dashboard] 👤 User details:', {
+        uid: user.uid,
+        email: user.email,
+        sessionId: sessionId
+      });
+      
+      // Écouter les messages en temps réel
       const unsubscribeMessages = subscribeToMessages(
         sessionId,
         (messages) => {
-          console.log('[Dashboard] Messages received:', messages.length);
-          // Mettre à jour les messages dans le store
+          console.log('[Dashboard] 💬 Messages received:', messages.length);
           setChatMessages(messages);
         },
         (error) => {
-          console.error('[Dashboard] Messages subscription error:', error);
+          console.error('[Dashboard] ❌ Messages subscription error:', error);
+        }
+      );
+
+      // Écouter les processus en temps réel
+      const unsubscribeProcess = subscribeToProcess(
+        sessionId,
+        user.uid,  // CRITICAL: Passer userId pour respecter les règles Firestore
+        (process) => {
+          console.log('[Dashboard] ✅ Process received:', process.id, process.status);
+          setCurrentProcess(process);
+          
+          // S'abonner aux logs d'activité une fois qu'on a le processId
+          if (process.id) {
+            const unsubscribeLogs = subscribeToActivityLogs(
+              process.id,
+              (logs) => {
+                console.log('[Dashboard] 📋 Activity logs received:', logs.length);
+                setActivityLogs(logs);
+              },
+              (error) => {
+                console.error('[Dashboard] ❌ Logs subscription error:', error);
+              }
+            );
+            
+            // Stocker l'unsubscribe des logs (sera nettoyé au prochain useEffect)
+            return unsubscribeLogs;
+          }
+        },
+        (error) => {
+          console.error('[Dashboard] ❌ Process subscription error:', error);
+          setConnectionError(error);
         }
       );
       
@@ -262,11 +306,15 @@ export const DashboardPage = () => {
       
       // Cleanup
       return () => {
-        console.log('[Dashboard] Unsubscribing from messages');
+        console.log('[Dashboard] 🧹 Unsubscribing from messages and processes');
         unsubscribeMessages();
+        unsubscribeProcess();
       };
     } else {
-      console.log('[Dashboard] Waiting for authentication...');
+      console.log('[Dashboard] ⏳ Waiting for authentication...', {
+        hasUser: !!user,
+        sessionId
+      });
       setIsLoading(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -310,8 +358,15 @@ export const DashboardPage = () => {
 
   // Écouter l'état d'authentification
   useEffect(() => {
+    console.log('[Dashboard] 🔐 Setting up auth listener...');
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log('[Dashboard] Auth state changed:', currentUser?.email || 'Not authenticated');
+      console.log('[Dashboard] 🔐 Auth state changed:', {
+        isAuthenticated: !!currentUser,
+        userId: currentUser?.uid,
+        email: currentUser?.email,
+        displayName: currentUser?.displayName,
+        sessionId: currentUser ? `session-${currentUser.uid}` : null
+      });
       setUser(currentUser);
     });
     
@@ -1128,7 +1183,7 @@ export const DashboardPage = () => {
 
                 {/* Zone de chat */}
                 <Box sx={{ flexGrow: 1, overflow: 'hidden' }} className="chat-interface">
-                  <ChatInterface sessionId={sessionId} />
+                  <ChatInterface sessionId={sessionId} userId={user?.uid} />
                 </Box>
               </Paper>
             </Box>

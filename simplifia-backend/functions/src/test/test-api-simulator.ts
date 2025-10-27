@@ -1,9 +1,9 @@
 /**
  * Script de test pour APISimulatorAgent
- * 
+ *
  * Tests manuels pour vérifier les réponses simulées
  * des différents sites administratifs
- * 
+ *
  * Usage:
  * cd simplifia-backend/functions
  * npm run build
@@ -321,7 +321,8 @@ async function testURSSAFSuccess() {
       console.log(`\n${colors.green}✅ Test RÉUSSI: Statut = success${colors.reset}`);
     }
 
-    if (response.numeroDossier && (response.numeroDossier.startsWith("URSSAF-") || response.numeroDossier.length === 14)) {
+    if (response.numeroDossier &&
+      (response.numeroDossier.startsWith("URSSAF-") || response.numeroDossier.length === 14)) {
       console.log(`${colors.green}✅ Numéro dossier valide: ${response.numeroDossier}${colors.reset}`);
     }
   } catch (error) {

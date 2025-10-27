@@ -113,7 +113,8 @@ async function testValidatorCodePostalInvalid() {
       {field: "nom", value: "Martin", confidence: 1.0, source: "userContext.nom"},
       {field: "prenom", value: "Thomas", confidence: 1.0, source: "userContext.prenom"},
       {field: "email", value: "thomas.martin@yahoo.fr", confidence: 1.0, source: "userContext.email"},
-      {field: "code_postal", value: "750", confidence: 1.0, source: "userContext.codePostal"}, // ❌ 3 chiffres au lieu de 5
+      // ❌ 3 chiffres au lieu de 5
+      {field: "code_postal", value: "750", confidence: 1.0, source: "userContext.codePostal"},
       {field: "ville", value: "Paris", confidence: 1.0, source: "userContext.ville"},
     ],
     missingFields: [],
