@@ -18,6 +18,9 @@ export class ValidatorAgent {
   private vertexAI: VertexAIService;
   private firestore: FirebaseFirestore.Firestore;
 
+  /**
+   * Constructeur privé (Singleton)
+   */
   private constructor() {
     this.vertexAI = new VertexAIService();
     this.firestore = getFirestore();

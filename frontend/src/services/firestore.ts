@@ -15,21 +15,28 @@ import { db } from '../config/firebase';
 /**
  * Ajouter un message au chat dans Firestore
  * Déclenche automatiquement le trigger onChatMessageAdded
+ * 
+ * ⚠️ IMPORTANT : L'utilisateur DOIT être authentifié
  */
 export const sendChatMessage = async (
   sessionId: string,
   content: string,
   role: 'user' | 'agent' = 'user',
-  userId?: string
+  userId: string  // ✅ OBLIGATOIRE maintenant !
 ): Promise<string> => {
   try {
+    // STRICT : Vérifier que userId est présent
+    if (!userId) {
+      throw new Error('userId manquant - l\'utilisateur doit être authentifié');
+    }
+
     console.log('[FirebaseWriter] Envoi d\'un message:', { sessionId, role, userId, content: content.substring(0, 50) + '...' });
     
     const messageData = {
       sessionId,
       role,
       content,
-      userId: userId || 'anonymous', // Utilise userId passé ou 'anonymous' par défaut
+      userId: userId,  // ✅ Pas de fallback 'anonymous'
       timestamp: serverTimestamp(),
       metadata: {
         isTyping: false,

@@ -2,11 +2,62 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // 🔥 MODE TEST : Accès complet pour utilisateurs authentifiés
-    // ⚠️ À RESTREINDRE EN PRODUCTION !
+
+    // Fonctions helper
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Collection processes - STRICT
+    match /processes/{processId} {
+      // Lecture : Utilisateurs authentifiés (filtrage par sessionId côté client)
+      allow list: if isAuthenticated();
+      // Lecture d'un document spécifique : vérifier userId
+      allow get: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Création : DOIT inclure le bon userId
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      // Modification/Suppression : Seulement par le propriétaire
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      // Sous-collection activity_logs
+      match /activity_logs/{logId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    // Collection messages - Backend peut créer des messages "agent"
+    match /messages/{messageId} {
+      // Lecture : Utilisateurs authentifiés
+      allow list: if isAuthenticated();
+      allow get: if isAuthenticated();
+      
+      // Création : User crée avec son userId, backend crée messages "agent"
+      allow create: if isAuthenticated() && 
+                      (request.resource.data.userId == request.auth.uid || 
+                       request.resource.data.role == 'agent');
+      
+      // Modification/Suppression : Seulement ses propres messages
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Collection activity_logs (globale)
+    match /activity_logs/{logId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Collection users
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Collection config (lecture seule)
+    match /config/{configId} {
+      allow read: if isAuthenticated();
+    }
+
+    // Deny all par défaut
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }

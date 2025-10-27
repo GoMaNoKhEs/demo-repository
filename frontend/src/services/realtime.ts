@@ -15,8 +15,11 @@ export const subscribeToProcess = (
   callback: (process: Process) => void,
   onError?: (error: Error) => void
 ): Unsubscribe => {
-  console.log('[Realtime] Subscribing to process for session:', sessionId);
+  console.log('[Realtime] 🔍 Subscribing to process for sessionId:', sessionId);
+  console.log('[Realtime] 🔍 Query: collection=processes, where(sessionId ==', sessionId + ')');
 
+  // Query simple: filtrer uniquement par sessionId
+  // Les règles Firestore vérifieront que userId correspond
   const q = query(
     collection(db, 'processes'),
     where('sessionId', '==', sessionId)
@@ -25,13 +28,26 @@ export const subscribeToProcess = (
   return onSnapshot(
     q,
     (snapshot) => {
+      console.log('[Realtime] 📦 Snapshot received:', {
+        empty: snapshot.empty,
+        size: snapshot.size,
+        sessionId
+      });
+      
       if (snapshot.empty) {
-        console.warn('[Realtime] No process found for session:', sessionId);
+        console.log('[Realtime] ℹ️ No process found yet for session:', sessionId);
         return;
       }
 
       snapshot.docs.forEach(doc => {
         const data = doc.data();
+        console.log('[Realtime] 📄 Process data received:', {
+          id: doc.id,
+          userId: data.userId,
+          sessionId: data.sessionId,
+          status: data.status
+        });
+        
         const process: Process = {
           id: doc.id,
           ...data,
@@ -41,12 +57,16 @@ export const subscribeToProcess = (
           completedAt: data.completedAt?.toDate(),
         } as Process;
         
-        console.log('[Realtime] Process updated:', process.id, process.status);
+        console.log('[Realtime] ✅ Process updated:', process.id, process.status);
         callback(process);
       });
     },
     (error) => {
-      console.error('[Realtime] Error subscribing to process:', error);
+      console.error('[Realtime] ❌ ERREUR subscribing to process:', {
+        message: error.message,
+        code: (error as any).code,
+        sessionId
+      });
       onError?.(error);
     }
   );

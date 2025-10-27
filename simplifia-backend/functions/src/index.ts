@@ -181,6 +181,8 @@ export const onChatMessageAdded = onDocumentCreated(
         `Nouveau message user dans session ${messageData.sessionId}`,
       );
       console.log(`Contenu : ${messageData.content}`);
+      console.log(`userId : ${messageData.userId}`);
+      
       // ============================================
       // INTÉGRATION AGENT CHAT IA
       // ============================================
@@ -188,13 +190,15 @@ export const onChatMessageAdded = onDocumentCreated(
       console.log("Message reçu, lancement de l'agent IA:", {
         sessionId: messageData.sessionId,
         content: messageData.content,
+        userId: messageData.userId,
       });
 
       // Utiliser l'instance unique de l'agent chat (Singleton)
       const chatAgent = ChatAgent.getInstance();
       await chatAgent.processUserMessage(
         messageData.sessionId,
-        messageData.content
+        messageData.content,
+        messageData.userId  // ✅ PASSER LE userId ICI !
       );
 
       console.log(

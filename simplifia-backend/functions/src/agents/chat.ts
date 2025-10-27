@@ -33,10 +33,12 @@ export class ChatAgent {
    */
   async processUserMessage(
     sessionId: string,
-    userMessage: string
+    userMessage: string,
+    userId?: string  // ✅ OPTIONNEL pour rétrocompatibilité
   ): Promise<void> {
     try {
       console.log(`Processing message for session ${sessionId}`);
+      console.log(`userId from trigger: ${userId}`);
 
       // Récupérer l'historique de conversation
       const conversationHistory = await this.getConversationHistory(sessionId);
@@ -59,7 +61,7 @@ export class ChatAgent {
       // Si l'utilisateur est prêt et confirme (détecté par l'IA), créer le processus
       if (intentAnalysis.readyToStart && intentAnalysis.userConfirmed && intentAnalysis.confidence > 0.7) {
         console.log(`[ChatAgent] Creating process for session ${sessionId}`);
-        await this.createProcessFromConversation(sessionId, intentAnalysis);
+        await this.createProcessFromConversation(sessionId, intentAnalysis, userId);  // ✅ PASSER userId
         return; // Fin de la conversation
       }
 
@@ -446,26 +448,40 @@ EXTRACTION INTELLIGENTE:
   }
 
   /**
-   * Créer un processus depuis la conversation
+   * Créer un processus automatiquement depuis la conversation
    */
   private async createProcessFromConversation(
     sessionId: string,
-    intentAnalysis: any
+    intentAnalysis: any,
+    providedUserId?: string  // ✅ NOUVEAU : userId passé depuis le trigger
   ): Promise<void> {
     try {
-      // 1. Récupérer userId depuis la session
-      const messagesSnapshot = await this.db
-        .collection("messages")
-        .where("sessionId", "==", sessionId)
-        .limit(1)
-        .get();
+      // 1. Récupérer userId : priorité au providedUserId, sinon fallback sur first message
+      let userId = providedUserId;
+      
+      if (!userId) {
+        console.log("⚠️ userId non fourni, recherche dans les messages...");
+        const messagesSnapshot = await this.db
+          .collection("messages")
+          .where("sessionId", "==", sessionId)
+          .orderBy("timestamp", "asc")
+          .limit(1)
+          .get();
 
-      if (messagesSnapshot.empty) {
-        throw new Error("No messages found for session");
+        if (messagesSnapshot.empty) {
+          throw new Error("No messages found for session");
+        }
+
+        const firstMessage = messagesSnapshot.docs[0].data();
+        userId = firstMessage.userId;
       }
 
-      const firstMessage = messagesSnapshot.docs[0].data();
-      const userId = firstMessage.userId || "anonymous";
+      // STRICT : userId est obligatoire
+      if (!userId) {
+        throw new Error("userId manquant - l'utilisateur doit être authentifié");
+      }
+      
+      console.log(`✅ userId récupéré : ${userId}`);
 
       // 2. Créer le processus avec steps
       const processData = {
@@ -512,7 +528,13 @@ EXTRACTION INTELLIGENTE:
 
       const processRef = await this.db.collection("processes").add(processData);
 
-      console.log(`Processus créé: ${processRef.id}`);
+      console.log(`✅ Processus créé avec succès:`, {
+        processId: processRef.id,
+        userId: userId,
+        sessionId: sessionId,
+        title: intentAnalysis.demarche,
+        status: "created"
+      });
 
       // 3. Envoyer message de confirmation généré par l'IA
       await this.generateAndSendConfirmationMessage(sessionId, intentAnalysis);

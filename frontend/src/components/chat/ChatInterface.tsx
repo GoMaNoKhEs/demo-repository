@@ -17,8 +17,18 @@ export const ChatInterface = ({ sessionId, userId }: ChatInterfaceProps) => {
   const [input, setInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { chatMessages, addChatMessage, isAgentThinking } = useAppStore();
+  const { chatMessages, isAgentThinking } = useAppStore();
   const notifications = useNotifications();
+
+  // 🔍 DEBUG : Logger les props reçues
+  useEffect(() => {
+    console.log('[ChatInterface] 🔍 Props received:', {
+      sessionId,
+      userId,
+      hasSessionId: !!sessionId,
+      hasUserId: !!userId
+    });
+  }, [sessionId, userId]);
 
   // 🔥 LOG : Tracer les messages reçus du store
   useEffect(() => {
@@ -47,21 +57,30 @@ export const ChatInterface = ({ sessionId, userId }: ChatInterfaceProps) => {
     const textToSend = messageText || input;
     if (!textToSend.trim()) return;
 
-    // Si pas de sessionId, ajouter seulement en local (mode démo)
+    console.log('[ChatInterface] 🚀 handleSend called:', {
+      textToSend,
+      sessionId,
+      userId,
+      hasUserId: !!userId,
+      hasSessionId: !!sessionId
+    });
+
+    // STRICT : Vérifier que l'utilisateur est connecté
+    if (!userId) {
+      console.error('[ChatInterface] ❌ userId manquant!');
+      notifications.error('Vous devez être connecté pour envoyer un message');
+      return;
+    }
+
+    // Si pas de sessionId, erreur (ne devrait jamais arriver)
     if (!sessionId) {
-      addChatMessage({
-        id: Date.now().toString(),
-        role: 'user',
-        content: textToSend,
-        timestamp: new Date(),
-      });
-      setInput('');
-      setShowSuggestions(false);
-      notifications.success('Message envoyé (mode démo)');
+      console.error('[ChatInterface] ❌ sessionId manquant!');
+      notifications.error('Session invalide - veuillez vous reconnecter');
       return;
     }
 
     try {
+      console.log('[ChatInterface] 📤 Envoi message vers Firestore...');
       // Envoyer vers Firestore → Déclenche le backend
       // Le listener temps réel ajoutera automatiquement le message dans l'UI
       await sendChatMessage(sessionId, textToSend, 'user', userId);
@@ -72,9 +91,9 @@ export const ChatInterface = ({ sessionId, userId }: ChatInterfaceProps) => {
       // Notification de succès
       notifications.success('Message envoyé à l\'agent');
       
-      console.log('[Chat] Message envoyé vers Firestore:', { sessionId, userId, content: textToSend });
+      console.log('[Chat] ✅ Message envoyé vers Firestore:', { sessionId, userId, content: textToSend });
     } catch (error) {
-      console.error('[Chat] Erreur envoi message:', error);
+      console.error('[Chat] ❌ Erreur envoi message:', error);
       notifications.error('Erreur lors de l\'envoi du message');
     }
   };
