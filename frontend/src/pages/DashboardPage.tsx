@@ -220,7 +220,6 @@ export const DashboardPage = () => {
       // 🔥 AJOUT : S'abonner aux processus créés pour cette session
       const unsubscribeProcess = subscribeToProcess(
         sessionId,
-        user.uid,  // ✅ Passer le userId pour les règles Firestore strictes
         (process) => {
           console.log('[Dashboard] 📋 Process received:', process.id, process.status);
           setCurrentProcess(process);

@@ -6,28 +6,34 @@ import type { Process, ActivityLog, ChatMessage } from '../types';
 /**
  * S'abonner aux mises à jour d'un processus en temps réel
  * @param sessionId - ID de la session utilisateur
- * @param userId - ID de l'utilisateur authentifié
  * @param callback - Fonction appelée quand le processus est mis à jour
  * @param onError - Fonction appelée en cas d'erreur
  * @returns Fonction de désabonnement
  */
 export const subscribeToProcess = (
   sessionId: string,
-  userId: string,
   callback: (process: Process) => void,
   onError?: (error: Error) => void
 ): Unsubscribe => {
-  console.log('[Realtime] 🔍 Subscribing to process for:', { sessionId, userId });
+  console.log('[Realtime] 🔍 Subscribing to process for sessionId:', sessionId);
+  console.log('[Realtime] 🔍 Query: collection=processes, where(sessionId ==', sessionId + ')');
 
+  // Query simple: filtrer uniquement par sessionId
+  // Les règles Firestore vérifieront que userId correspond
   const q = query(
     collection(db, 'processes'),
-    where('sessionId', '==', sessionId),
-    where('userId', '==', userId)  // CRITICAL: Filtrer par userId pour respecter les règles Firestore
+    where('sessionId', '==', sessionId)
   );
 
   return onSnapshot(
     q,
     (snapshot) => {
+      console.log('[Realtime] 📦 Snapshot received:', {
+        empty: snapshot.empty,
+        size: snapshot.size,
+        sessionId
+      });
+      
       if (snapshot.empty) {
         console.log('[Realtime] ℹ️ No process found yet for session:', sessionId);
         return;
