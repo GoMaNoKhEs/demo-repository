@@ -10,6 +10,7 @@ import {
 import * as admin from "firebase-admin";
 import {validateConfig} from "./utils/config";
 import { ChatAgent } from "./agents/chat";
+import { ProcessOrchestrator } from "./services/orchestrator";
 
 // Valider la configuration
 validateConfig();
@@ -71,12 +72,19 @@ export const onProcessCreated = onDocumentCreated(
       console.log(`Processus ${processId} initialisé et en cours`);
 
       // ============================================
-      // TODO JOUR 2-4: Lancer le workflow automatique
+      // WORKFLOW AUTOMATIQUE - Lancer l'orchestrator
       // ============================================
-      // Ici, on lancera plus tard :
-      // - Navigator (connexion au site)
-      // - FormFiller (remplissage formulaire)
-      // - Validator (validation données)
+      console.log(`🚀 Démarrage du workflow automatique pour ${processId}`);
+
+      // Lancer le workflow de manière asynchrone (non-bloquant)
+      const orchestrator = ProcessOrchestrator.getInstance();
+      orchestrator.executeWorkflow(processId)
+        .then((metrics) => {
+          console.log(`✅ Workflow ${processId} complété en ${metrics.totalDuration}ms`);
+        })
+        .catch((error) => {
+          console.error(`❌ Erreur workflow ${processId}:`, error);
+        });
     } catch (error) {
       console.error(
         `❌ Erreur initialisation processus ${processId}:`,

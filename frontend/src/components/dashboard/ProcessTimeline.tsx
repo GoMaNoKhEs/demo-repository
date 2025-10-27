@@ -1,4 +1,4 @@
-import { Box, Typography, LinearProgress, Chip } from '@mui/material';
+import { Box, Typography, LinearProgress, Chip, Tooltip } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useEffect, useRef } from 'react';
 import {
@@ -19,8 +19,8 @@ export const ProcessTimeline = ({ steps, currentStepIndex }: ProcessTimelineProp
   // Ref pour suivre si le confetti a déjà été déclenché
   const confettiTriggered = useRef(false);
 
-  // Vérifier si toutes les étapes sont complétées
-  const allStepsCompleted = steps.every(step => step.status === 'completed');
+  // 🔥 FIX : Vérifier que steps est un tableau avant d'appeler .every()
+  const allStepsCompleted = Array.isArray(steps) && steps.every(step => step.status === 'completed');
 
   // Déclencher le confetti quand toutes les étapes sont complétées (une seule fois)
   useEffect(() => {
@@ -36,6 +36,23 @@ export const ProcessTimeline = ({ steps, currentStepIndex }: ProcessTimelineProp
       confettiTriggered.current = false;
     }
   }, [allStepsCompleted]);
+
+  /**
+   * Retourne une description détaillée de l'étape pour le tooltip
+   */
+  const getStepTooltip = (stepName: string, status: string): string => {
+    const tooltips: Record<string, string> = {
+      'Analyse et collecte': '🤖 L\'assistant SimplifIA collecte vos informations via conversation naturelle. Il identifie votre besoin et rassemble les données nécessaires.',
+      'Collecte des informations': '🤖 L\'assistant SimplifIA collecte vos informations via conversation naturelle. Il identifie votre besoin et rassemble les données nécessaires.',
+      'Validation des données': '🔍 Vérification automatique de vos données : formats (email, téléphone), cohérence (dates, montants) et règles métier (éligibilité APL, RSA, etc.)',
+      'Navigation et soumission': '🌐 SimplifIA se connecte au site administratif (CAF, ANTS, etc.), remplit automatiquement le formulaire et soumet votre demande.',
+      'Soumission': '🌐 SimplifIA se connecte au site administratif (CAF, ANTS, etc.), remplit automatiquement le formulaire et soumet votre demande.',
+      'Confirmation': '✅ Récupération du numéro de dossier et confirmation de la soumission. Vous recevrez les prochaines étapes par email.',
+    };
+
+    const defaultTooltip = `${stepName} - ${status === 'completed' ? '✅ Complété' : status === 'in-progress' ? '⏳ En cours' : '⏸️ En attente'}`;
+    return tooltips[stepName] || defaultTooltip;
+  };
 
   const getStepIcon = (step: ProcessStep) => {
     switch (step.status) {
@@ -83,7 +100,8 @@ export const ProcessTimeline = ({ steps, currentStepIndex }: ProcessTimelineProp
     return `${minutes}m ${seconds}s`;
   };
 
-  const sortedSteps = [...steps].sort((a, b) => a.order - b.order);
+  // 🔥 FIX : Vérifier que steps est un tableau avant de créer sortedSteps
+  const sortedSteps = Array.isArray(steps) ? [...steps].sort((a, b) => a.order - b.order) : [];
 
   return (
     <Box sx={{ position: 'relative', py: 2 }}>
@@ -110,25 +128,38 @@ export const ProcessTimeline = ({ steps, currentStepIndex }: ProcessTimelineProp
                   pb: showProgressBar ? 3 : 0,
                 }}
               >
-                {/* Icône */}
-                <Box
-                  sx={{
-                    position: 'relative',
-                    zIndex: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 48,
-                    height: 48,
-                    borderRadius: '50%',
-                    backgroundColor: isActive ? 'primary.lighter' : 'background.paper',
-                    border: 2,
-                    borderColor: getStepColor(step),
-                    transition: 'all 0.3s',
-                  }}
+                {/* Icône avec Tooltip explicatif */}
+                <Tooltip 
+                  title={getStepTooltip(step.name, step.status)}
+                  arrow
+                  placement="left"
+                  enterDelay={300}
+                  leaveDelay={200}
                 >
-                  {getStepIcon(step)}
-                </Box>
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      zIndex: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 48,
+                      height: 48,
+                      borderRadius: '50%',
+                      backgroundColor: isActive ? 'primary.lighter' : 'background.paper',
+                      border: 2,
+                      borderColor: getStepColor(step),
+                      transition: 'all 0.3s',
+                      cursor: 'help',
+                      '&:hover': {
+                        transform: 'scale(1.1)',
+                        boxShadow: 3,
+                      },
+                    }}
+                  >
+                    {getStepIcon(step)}
+                  </Box>
+                </Tooltip>
 
                 {/* Contenu */}
                 <Box

@@ -11,8 +11,11 @@ export const DashboardHeader = () => {
   const { currentProcess, activityLogs } = useAppStore();
 
   // Calcul des statistiques (hook appelé avant tout return)
-  const completedSteps = currentProcess?.steps.filter(s => s.status === 'completed').length || 0;
-  const totalSteps = currentProcess?.steps.length || 0;
+  // 🔥 FIX : Vérifier que steps est un tableau avant d'appeler .filter()
+  const completedSteps = Array.isArray(currentProcess?.steps) 
+    ? currentProcess.steps.filter(s => s.status === 'completed').length 
+    : 0;
+  const totalSteps = Array.isArray(currentProcess?.steps) ? currentProcess.steps.length : 0;
   const progress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
 
   const stats = useMemo(() => {

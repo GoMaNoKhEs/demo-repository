@@ -29,6 +29,7 @@ import { useAppStore } from '../stores/useAppStore';
 import { useNotifications } from '../hooks/useNotifications';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { useKeyboardNavigation, useFocusVisible } from '../hooks/useKeyboardNavigation';
+import { useSessionManager } from '../hooks/useSessionManager';
 import { mockProcess, mockActivityLogs } from '../mocks/data';
 import { subscribeToProcess, subscribeToActivityLogs, subscribeToMessages } from '../services/realtime';
 
@@ -45,7 +46,6 @@ export const DashboardPage = () => {
     setActivityLogs,
     addActivityLog,
     addChatMessage,
-    clearChatMessages,
     chatMessages,
     setChatMessages,
   } = useAppStore();
@@ -59,8 +59,25 @@ export const DashboardPage = () => {
   const [connectionError, setConnectionError] = useState<Error | null>(null);
   const [useRealtime] = useState(true); // Mode Firestore activé pour la production
   
-  // ID de session basé sur l'utilisateur authentifié
-  const sessionId = user ? `session-${user.uid}` : 'demo-session-123';
+  // Gestion multi-sessions avec sessionId dynamique
+  const {
+    currentSessionId,
+    createNewSession,
+    // sessions, loadSession, deleteSession, updateTitleIfNeeded - à utiliser plus tard pour UI liste
+  } = useSessionManager(user?.uid);
+
+  // ID de session : UTILISER UNIQUEMENT currentSessionId (pas de fallback !)
+  // ⚠️ CRITICAL : Le même sessionId DOIT être utilisé pour subscribe ET envoyer les messages
+  const sessionId = currentSessionId;
+  
+  // Debug logs pour diagnostiquer les problèmes de session
+  useEffect(() => {
+    console.log('[Dashboard] 🔑 Session ID changed:', { 
+      currentSessionId, 
+      sessionId,
+      userId: user?.uid,
+    });
+  }, [currentSessionId, sessionId, user?.uid]);
 
   // États pour les nouveaux composants Phase 3 DEV2
   const [criticalActionModalOpen, setCriticalActionModalOpen] = useState(false);
@@ -187,58 +204,6 @@ export const DashboardPage = () => {
     }, 300);
   }, [setCurrentProcess, setActivityLogs]);
 
-  // Fonction pour se connecter au temps réel
-  const connectRealtime = useCallback(() => {
-    if (!user) {
-      console.error('[Dashboard] Cannot connect to realtime: user not authenticated');
-      notifications.error('Vous devez être connecté');
-      return;
-    }
-    
-    console.log('[Dashboard] Connecting to Firestore realtime...');
-    setIsLoading(true);
-    setConnectionError(null);
-
-    // S'abonner aux mises à jour du processus
-    const unsubscribeProcess = subscribeToProcess(
-      sessionId,
-      user.uid,  // CRITICAL: Passer userId
-      (process) => {
-        console.log('[Dashboard] Process received:', process);
-        setCurrentProcess(process);
-        setIsLoading(false);
-        
-        // S'abonner aux logs d'activité une fois qu'on a le processId
-        if (process.id) {
-          const unsubscribeLogs = subscribeToActivityLogs(
-            process.id,
-            (logs) => {
-              console.log('[Dashboard] Activity logs received:', logs.length);
-              setActivityLogs(logs);
-            },
-            (error) => {
-              console.error('[Dashboard] Logs subscription error:', error);
-              notifications.error('Erreur de chargement des logs');
-            }
-          );
-          
-          return unsubscribeLogs;
-        }
-      },
-      (error) => {
-        console.error('[Dashboard] Process subscription error:', error);
-        setConnectionError(error);
-        setIsLoading(false);
-      }
-    );
-
-    // Cleanup
-    return () => {
-      console.log('[Dashboard] Unsubscribing from realtime');
-      unsubscribeProcess();
-    };
-  }, [sessionId, user, setCurrentProcess, setActivityLogs, notifications]);
-
   // Effet pour gérer le mode (mock vs realtime) - Pour nouveaux utilisateurs
   useEffect(() => {
     if (!useRealtime) {
@@ -248,57 +213,54 @@ export const DashboardPage = () => {
         setActivityLogs(mockActivityLogs);
         setIsLoading(false);
       }, 1000);
-    } else if (user) {
-      console.log('[Dashboard] User authenticated:', user.email);
-      console.log('[Dashboard] Ready for conversation - listening to messages and processes');
+    } else if (user && sessionId) {
+      console.log('[Dashboard] ✅ User authenticated:', user.email);
+      console.log('[Dashboard] ✅ Listening to messages for session:', sessionId);
       
-      console.log('[Dashboard] 🚀 User authenticated, setting up realtime listeners...');
-      console.log('[Dashboard] 👤 User details:', {
-        uid: user.uid,
-        email: user.email,
-        sessionId: sessionId
-      });
-      
-      // Écouter les messages en temps réel
-      const unsubscribeMessages = subscribeToMessages(
-        sessionId,
-        (messages) => {
-          console.log('[Dashboard] 💬 Messages received:', messages.length);
-          setChatMessages(messages);
-        },
-        (error) => {
-          console.error('[Dashboard] ❌ Messages subscription error:', error);
-        }
-      );
-
-      // Écouter les processus en temps réel
+      // 🔥 AJOUT : S'abonner aux processus créés pour cette session
       const unsubscribeProcess = subscribeToProcess(
         sessionId,
-        user.uid,  // CRITICAL: Passer userId pour respecter les règles Firestore
         (process) => {
-          console.log('[Dashboard] ✅ Process received:', process.id, process.status);
+          console.log('[Dashboard] 📋 Process received:', process.id, process.status);
           setCurrentProcess(process);
+          setIsLoading(false);
           
-          // S'abonner aux logs d'activité une fois qu'on a le processId
+          // S'abonner aux activity_logs du processus
           if (process.id) {
+            console.log('[Dashboard] 📊 Subscribing to activity_logs for processId:', process.id);
             const unsubscribeLogs = subscribeToActivityLogs(
               process.id,
               (logs) => {
-                console.log('[Dashboard] 📋 Activity logs received:', logs.length);
+                console.log('[Dashboard] ✅ Activity logs received:', logs.length);
                 setActivityLogs(logs);
               },
               (error) => {
                 console.error('[Dashboard] ❌ Logs subscription error:', error);
+                notifications.error('Erreur de chargement des logs');
               }
             );
             
-            // Stocker l'unsubscribe des logs (sera nettoyé au prochain useEffect)
-            return unsubscribeLogs;
+            // Cleanup des logs quand le composant unmount
+            return () => unsubscribeLogs();
           }
         },
         (error) => {
           console.error('[Dashboard] ❌ Process subscription error:', error);
           setConnectionError(error);
+          setIsLoading(false);
+        }
+      );
+      
+      // Écouter les messages en temps réel pour cette session
+      const unsubscribeMessages = subscribeToMessages(
+        sessionId,
+        (messages) => {
+          console.log('[Dashboard] 📨 Messages received:', messages.length);
+          // Mettre à jour les messages dans le store
+          setChatMessages(messages);
+        },
+        (error) => {
+          console.error('[Dashboard] ❌ Messages subscription error:', error);
         }
       );
       
@@ -306,19 +268,16 @@ export const DashboardPage = () => {
       
       // Cleanup
       return () => {
-        console.log('[Dashboard] 🧹 Unsubscribing from messages and processes');
+        console.log('[Dashboard] 🔌 Unsubscribing from messages and processes for session:', sessionId);
         unsubscribeMessages();
         unsubscribeProcess();
       };
     } else {
-      console.log('[Dashboard] ⏳ Waiting for authentication...', {
-        hasUser: !!user,
-        sessionId
-      });
+      console.warn('[Dashboard] ⏳ Waiting for user and sessionId...', { user: !!user, sessionId });
       setIsLoading(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]); // Réagir aux changements d'utilisateur
+  }, [user, sessionId]); // Réagir aux changements d'utilisateur ET de session
 
   // Fermer les drawers mobiles automatiquement quand on resize vers desktop
   useEffect(() => {
@@ -358,15 +317,8 @@ export const DashboardPage = () => {
 
   // Écouter l'état d'authentification
   useEffect(() => {
-    console.log('[Dashboard] 🔐 Setting up auth listener...');
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log('[Dashboard] 🔐 Auth state changed:', {
-        isAuthenticated: !!currentUser,
-        userId: currentUser?.uid,
-        email: currentUser?.email,
-        displayName: currentUser?.displayName,
-        sessionId: currentUser ? `session-${currentUser.uid}` : null
-      });
+      console.log('[Dashboard] Auth state changed:', currentUser?.email || 'Not authenticated');
       setUser(currentUser);
     });
     
@@ -378,7 +330,7 @@ export const DashboardPage = () => {
     if (!currentProcess || hasShownCelebration) return;
 
     // Vérifier si toutes les étapes sont complétées
-    const allStepsCompleted = currentProcess.steps.every(step => step.status === 'completed');
+    const allStepsCompleted = Array.isArray(currentProcess?.steps) && currentProcess.steps.every(step => step.status === 'completed');
     const isProcessCompleted = currentProcess.status === 'completed' || allStepsCompleted;
 
     if (isProcessCompleted && !hasShownCelebration) {
@@ -410,15 +362,19 @@ export const DashboardPage = () => {
   // Fonction de retry en cas d'erreur
   const handleRetry = () => {
     if (useRealtime) {
-      connectRealtime();
+      // Re-trigger l'effet en changeant un état
+      setIsLoading(true);
+      notifications.info('Reconnexion en cours...');
     } else {
       loadMockData();
     }
   };
 
   const handleResetChat = () => {
-    clearChatMessages();
-    notifications.info('Chat réinitialisé - Les suggestions sont de retour !');
+    // Créer une nouvelle session avec sessionId unique
+    const newSessionId = createNewSession();
+    console.log('[Dashboard] New chat session created:', newSessionId);
+    notifications.info('Nouvelle conversation démarrée !');
   };
 
   const handleValidation = () => {
@@ -564,17 +520,6 @@ export const DashboardPage = () => {
           flexDirection: 'column',
         }}
       >
-      {/* Debug info */}
-      {!isLoading && !connectionError && !currentProcess && (
-        <Box sx={{ p: 3, bgcolor: 'error.light', color: 'white', borderRadius: 2, m: 2 }}>
-          <Typography variant="h6">⚠️ Debug: Aucun processus chargé</Typography>
-          <Typography variant="body2">
-            useRealtime: {useRealtime.toString()} | 
-            activityLogs: {activityLogs.length} logs
-          </Typography>
-        </Box>
-      )}
-
       {/* Header mobile avec menu hamburger */}
       {isMobile && (
         <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>

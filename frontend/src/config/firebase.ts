@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
 
 const firebaseConfig = {
@@ -19,11 +19,14 @@ export const db = getFirestore(app);
 export const analytics = getAnalytics(app);
 export const googleProvider = new GoogleAuthProvider();
 
+// 🔥 TEMPORAIREMENT DÉSACTIVÉ : Peut causer des problèmes CORS avec les listeners onSnapshot
 // Activer la persistence offline
-enableIndexedDbPersistence(db).catch((err) => {
-  if (err.code === 'failed-precondition') {
-    console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-  } else if (err.code === 'unimplemented') {
-    console.warn('The current browser does not support persistence.');
-  }
-});
+// enableIndexedDbPersistence(db).catch((err) => {
+//   if (err.code === 'failed-precondition') {
+//     console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+//   } else if (err.code === 'unimplemented') {
+//     console.warn('The current browser does not support persistence.');
+//   }
+// });
+
+console.log('[Firebase] 🔥 Firestore initialized WITHOUT persistence (CORS fix)');

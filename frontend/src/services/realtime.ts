@@ -121,19 +121,29 @@ export const subscribeToMessages = (
   callback: (messages: ChatMessage[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe => {
-  console.log('[Realtime] Subscribing to messages for session:', sessionId);
+  console.log('[Realtime] 🔔 Subscribing to messages for session:', sessionId);
+  console.log('[Realtime] 🔔 Firestore db instance:', db ? 'OK' : 'NULL');
 
+  // 🔥 TEMPORAIRE : Sans orderBy pour tester (en attendant que l'index soit créé)
   const q = query(
     collection(db, 'messages'),
-    where('sessionId', '==', sessionId),
-    orderBy('timestamp', 'asc')
+    where('sessionId', '==', sessionId)
+    // orderBy('timestamp', 'asc')  // Commenté temporairement
   );
+
+  console.log('[Realtime] 🔔 Query created, waiting for snapshot...');
 
   return onSnapshot(
     q,
     (snapshot) => {
+      console.log('[Realtime] 🔔 SNAPSHOT RECEIVED!');
+      console.log('[Realtime] 🔔 Snapshot empty:', snapshot.empty);
+      console.log('[Realtime] 🔔 Snapshot size:', snapshot.size);
+      console.log('[Realtime] 🔔 Snapshot docs:', snapshot.docs.length);
+      
       const messages = snapshot.docs.map(doc => {
         const data = doc.data();
+        console.log('[Realtime] 🔔 Message doc:', doc.id, data);
         return {
           id: doc.id,
           ...data,
@@ -142,11 +152,17 @@ export const subscribeToMessages = (
         } as ChatMessage;
       });
       
-      console.log('[Realtime] Messages updated:', messages.length, 'messages');
+      // Trier manuellement en attendant l'index
+      messages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      
+      console.log('[Realtime] 📨 Messages updated:', messages.length, 'messages');
+      console.log('[Realtime] 📨 Messages data:', messages);
       callback(messages);
     },
     (error) => {
-      console.error('[Realtime] Error subscribing to messages:', error);
+      console.error('[Realtime] ❌ Error subscribing to messages:', error);
+      console.error('[Realtime] ❌ Error code:', error.code);
+      console.error('[Realtime] ❌ Error message:', error.message);
       onError?.(error);
     }
   );
