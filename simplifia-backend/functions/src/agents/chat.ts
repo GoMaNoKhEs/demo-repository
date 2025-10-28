@@ -98,6 +98,21 @@ export class ChatAgent {
   }
 
   /**
+   * Nettoie la réponse JSON de Vertex AI
+   * Utilisée pour parser les réponses IA qui peuvent contenir du markdown
+   */
+  private cleanJsonResponse(response: string): string {
+    // Supprimer les markdown code blocks
+    let cleaned = response.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+
+    // Supprimer les retours à la ligne et espaces multiples dans le JSON
+    cleaned = cleaned.replace(/\n/g, " ").replace(/\r/g, "");
+    cleaned = cleaned.replace(/\s+/g, " ").trim();
+
+    return cleaned;
+  }
+
+  /**
    * Traiter un message utilisateur et répondre
    */
   async processUserMessage(
@@ -535,9 +550,301 @@ EXTRACTION INTELLIGENTE:
 
   /**
    * Générer des steps détaillées et spécifiques à la démarche
-   * IMPORTANT: Retourner des étapes descriptives et révélatrices du processus réel
+   * NOUVELLE VERSION : Utilise l'IA pour générer des steps personnalisés
+   * FALLBACK : Si l'IA échoue, utilise l'ancien système hardcodé (sécurité)
    */
-  private generateDetailedSteps(demarche: string, collectedInfo: any): any[] {
+  private async generateDetailedSteps(demarche: string, collectedInfo: any): Promise<any[]> {
+    try {
+      console.log(`🤖 Génération intelligente des steps pour: ${demarche}`);
+      
+      // Tentative de génération par IA
+      const aiGeneratedSteps = await this.generateStepsWithAI(demarche, collectedInfo);
+      
+      if (aiGeneratedSteps && aiGeneratedSteps.length > 0) {
+        console.log(`✅ ${aiGeneratedSteps.length} steps générés par IA avec succès`);
+        return aiGeneratedSteps;
+      }
+      
+      // Si IA échoue, fallback vers système hardcodé
+      console.warn("⚠️ Génération IA échouée, utilisation du système de fallback");
+      return this.generateDetailedStepsFallback(demarche, collectedInfo);
+      
+    } catch (error) {
+      console.error("❌ Erreur génération steps avec IA:", error);
+      console.log("🔄 Utilisation du système de fallback");
+      return this.generateDetailedStepsFallback(demarche, collectedInfo);
+    }
+  }
+
+  /**
+   * Génération intelligente des steps via Vertex AI
+   * Personnalise selon la démarche ET les données utilisateur
+   */
+  private async generateStepsWithAI(demarche: string, collectedInfo: any): Promise<any[]> {
+    // Construire le contexte utilisateur de manière sécurisée
+    const userContextSummary = this.buildUserContextSummary(collectedInfo);
+    
+    const prompt = `Tu es un expert en démarches administratives françaises. Ta mission est de générer les étapes DÉTAILLÉES et PERSONNALISÉES d'un processus administratif.
+
+**DÉMARCHE À TRAITER :**
+"${demarche}"
+
+**CONTEXTE UTILISATEUR :**
+${userContextSummary}
+
+**INSTRUCTIONS CRITIQUES :**
+
+1. **PERSONNALISATION OBLIGATOIRE** :
+   - Intègre les données réelles (ville, montants, situation) dans les descriptions
+   - Exemple BON : "Connexion au portail CAF Île-de-France (Paris)"
+   - Exemple MAUVAIS : "Connexion au portail CAF" (trop générique)
+
+2. **NOMBRE D'ÉTAPES** :
+   - Génère EXACTEMENT 4 étapes (après l'étape 0 qui est l'analyse)
+   - Ni plus, ni moins
+
+3. **STRUCTURE OBLIGATOIRE** :
+   - Étape 1 : Connexion/Accès au site administratif concerné
+   - Étape 2 : Remplissage du formulaire (avec détails personnalisés)
+   - Étape 3 : Validation/Vérification (avec critères spécifiques)
+   - Étape 4 : Soumission/Finalisation
+
+4. **SITES ADMINISTRATIFS FRANÇAIS** :
+   - CAF : APL, RSA, allocations familiales, prime d'activité
+   - Mairie : Naissance, mariage, décès, urbanisme
+   - ANTS : Passeport, CNI, permis de conduire
+   - Impots.gouv.fr : Déclaration revenus, taxes
+   - Pôle Emploi : Inscription chômage, formations
+   - CPAM/Ameli : Carte vitale, remboursements
+   - Préfecture : Titres de séjour, naturalisation
+
+5. **DESCRIPTIONS RÉVÉLATRICES** :
+   - Chaque description doit montrer ce qui sera VRAIMENT fait
+   - Inclure les montants, dates, lieux spécifiques
+   - Expliquer brièvement la logique (ex: "Vérification éligibilité selon revenus")
+
+**FORMAT DE RÉPONSE (JSON STRICT) :**
+
+Retourne UNIQUEMENT un array JSON (sans texte avant/après, sans markdown) :
+
+[
+  {
+    "id": "1",
+    "name": "Nom court étape 1",
+    "status": "pending",
+    "order": 1,
+    "description": "Description PERSONNALISÉE détaillée avec données réelles"
+  },
+  {
+    "id": "2",
+    "name": "Nom court étape 2",
+    "status": "pending",
+    "order": 2,
+    "description": "Description PERSONNALISÉE détaillée avec données réelles"
+  },
+  {
+    "id": "3",
+    "name": "Nom court étape 3",
+    "status": "pending",
+    "order": 3,
+    "description": "Description PERSONNALISÉE détaillée avec données réelles"
+  },
+  {
+    "id": "4",
+    "name": "Nom court étape 4",
+    "status": "pending",
+    "order": 4,
+    "description": "Description PERSONNALISÉE détaillée avec données réelles"
+  }
+]
+
+**EXEMPLE CONCRET pour "Demande APL à Paris, loyer 850€, revenus 1500€" :**
+
+[
+  {
+    "id": "1",
+    "name": "Connexion portail CAF Île-de-France",
+    "status": "pending",
+    "order": 1,
+    "description": "Accès sécurisé au portail caf.fr spécifique à la région Île-de-France (Paris)"
+  },
+  {
+    "id": "2",
+    "name": "Déclaration logement Paris 850€",
+    "status": "pending",
+    "order": 2,
+    "description": "Remplissage formulaire APL : identité, logement à Paris, loyer mensuel 850€, revenus déclarés 1500€"
+  },
+  {
+    "id": "3",
+    "name": "Validation éligibilité APL",
+    "status": "pending",
+    "order": 3,
+    "description": "Vérification automatique : loyer/revenus ratio (850€/1500€ = 56%, conforme), situation familiale, conditions CAF"
+  },
+  {
+    "id": "4",
+    "name": "Soumission dossier APL",
+    "status": "pending",
+    "order": 4,
+    "description": "Envoi sécurisé du dossier à la CAF Paris avec numéro de suivi, estimation traitement 5-10 jours"
+  }
+]
+
+**IMPORTANT** :
+- Retourne UNIQUEMENT le JSON array (pas de \`\`\`json, pas de texte explicatif)
+- EXACTEMENT 4 étapes (id: "1" à "4")
+- Tous les champs obligatoires présents (id, name, status, order, description)
+- Descriptions PERSONNALISÉES avec données réelles du contexte
+
+**ULTRA IMPORTANT** :
+La démarche n'est pas forcément "Demande APL", adapte TOUT le prompt à la démarche fournie.
+Ca peut être une déclaration de naissance, renouvellement de passeport, demande RSA, etc.
+Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte fournie.`;
+
+    try {
+      const response = await this.vertexAI.generateResponse("CHAT", prompt);
+      
+      // Nettoyer la réponse (enlever markdown, espaces, etc.)
+      const cleanedResponse = this.cleanJsonResponse(response);
+      
+      // Parser le JSON
+      const stepsArray = JSON.parse(cleanedResponse);
+      
+      // Validation stricte du format
+      if (!this.validateStepsFormat(stepsArray)) {
+        throw new Error("Format de steps invalide retourné par l'IA");
+      }
+      
+      // Ajouter l'étape 0 (analyse) qui est toujours présente et completed
+      const baseStep = {
+        id: "0",
+        name: "Analyse et vérification d'éligibilité",
+        status: "completed",
+        order: 0,
+        description: `Collecte et vérification des informations pour ${demarche}`,
+      };
+      
+      return [baseStep, ...stepsArray];
+      
+    } catch (error) {
+      console.error("❌ Erreur lors de la génération IA des steps:", error);
+      throw error; // Propager l'erreur pour déclencher le fallback
+    }
+  }
+
+  /**
+   * Construit un résumé du contexte utilisateur pour le prompt IA
+   */
+  private buildUserContextSummary(collectedInfo: any): string {
+    const summary: string[] = [];
+    
+    // Informations personnelles
+    if (collectedInfo.nom || collectedInfo.prenom) {
+      summary.push(`- Identité : ${collectedInfo.prenom || "?"} ${collectedInfo.nom || "?"}`);
+    }
+    
+    // Localisation
+    if (collectedInfo.ville) {
+      summary.push(`- Ville : ${collectedInfo.ville}`);
+      if (collectedInfo.codePostal) {
+        summary.push(`- Code postal : ${collectedInfo.codePostal}`);
+      }
+    }
+    
+    // Situation
+    if (collectedInfo.situation) {
+      summary.push(`- Situation : ${collectedInfo.situation}`);
+    }
+    
+    // Logement (pour APL, etc.)
+    if (collectedInfo.loyer) {
+      summary.push(`- Loyer mensuel : ${collectedInfo.loyer}€`);
+    }
+    if (collectedInfo.logement) {
+      summary.push(`- Type logement : ${collectedInfo.logement}`);
+    }
+    
+    // Revenus
+    if (collectedInfo.revenus) {
+      summary.push(`- Revenus mensuels : ${collectedInfo.revenus}€`);
+    }
+    
+    // Enfants (pour allocations, naissance, etc.)
+    if (collectedInfo.nomEnfant || collectedInfo.prenomEnfant) {
+      summary.push(`- Enfant : ${collectedInfo.prenomEnfant || "?"} ${collectedInfo.nomEnfant || "?"}`);
+    }
+    if (collectedInfo.dateNaissanceEnfant) {
+      summary.push(`- Date naissance enfant : ${collectedInfo.dateNaissanceEnfant}`);
+    }
+    
+    // Autres infos pertinentes
+    if (collectedInfo.dateEntree) {
+      summary.push(`- Date entrée logement : ${collectedInfo.dateEntree}`);
+    }
+    
+    return summary.length > 0 ? summary.join("\n") : "Aucune information spécifique disponible";
+  }
+
+  /**
+   * Valide que le format des steps retournés par l'IA est correct
+   */
+  private validateStepsFormat(steps: any): boolean {
+    try {
+      // Vérifier que c'est un array
+      if (!Array.isArray(steps)) {
+        console.error("❌ Steps n'est pas un array");
+        return false;
+      }
+      
+      // Vérifier qu'il y a au moins 3 étapes et max 6
+      if (steps.length < 3 || steps.length > 6) {
+        console.error(`❌ Nombre de steps invalide: ${steps.length} (attendu: 3-6)`);
+        return false;
+      }
+      
+      // Vérifier chaque step
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        
+        // Vérifier présence des champs obligatoires
+        if (!step.id || !step.name || !step.status || step.order === undefined || !step.description) {
+          console.error(`❌ Step ${i} invalide, champs manquants:`, step);
+          return false;
+        }
+        
+        // Vérifier types
+        if (typeof step.id !== "string" || 
+            typeof step.name !== "string" || 
+            typeof step.status !== "string" || 
+            typeof step.order !== "number" || 
+            typeof step.description !== "string") {
+          console.error(`❌ Step ${i} invalide, types incorrects:`, step);
+          return false;
+        }
+        
+        // Vérifier que status est "pending"
+        if (step.status !== "pending") {
+          console.warn(`⚠️ Step ${i} status n'est pas "pending", correction automatique`);
+          step.status = "pending";
+        }
+      }
+      
+      return true;
+      
+    } catch (error) {
+      console.error("❌ Erreur validation steps:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Système de fallback : génération hardcodée des steps (ancien système)
+   * Utilisé si l'IA échoue pour garantir la robustesse
+   */
+  private generateDetailedStepsFallback(demarche: string, collectedInfo: any): any[] {
+    console.log("🔄 Utilisation du système de fallback (steps hardcodés)");
+    
     // Étape 0 toujours présente: Analyse
     const baseSteps = [
       {
@@ -681,7 +988,8 @@ EXTRACTION INTELLIGENTE:
       console.log(`✅ userId récupéré : ${userId}`);
 
       // 2. Créer le processus avec steps **détaillées et spécifiques à la démarche**
-      const steps = this.generateDetailedSteps(intentAnalysis.demarche, intentAnalysis.collectedInfo);
+      console.log(`🤖 Génération des steps pour: ${intentAnalysis.demarche}`);
+      const steps = await this.generateDetailedSteps(intentAnalysis.demarche, intentAnalysis.collectedInfo);
       
       console.log(`🔍 [ChatAgent] Steps générées:`, JSON.stringify(steps, null, 2));
       
