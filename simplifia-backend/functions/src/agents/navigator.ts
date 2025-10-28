@@ -69,6 +69,30 @@ export class NavigatorAgent {
     try {
       console.log(`🧭 Navigator: Début navigation sur ${siteName} pour processus ${processId}`);
 
+      // LOG DÉTAILLÉ: Début du processus de navigation
+      await this.logDetailedAction(
+        processId,
+        `🌐 Initialisation connexion vers ${siteName}`,
+        "info",
+        { siteName, endpoint }
+      );
+
+      // LOG DÉTAILLÉ: Préparation des données
+      const dataKeys = Object.keys(userData);
+      await this.logDetailedAction(
+        processId,
+        `📋 Préparation des données (${dataKeys.length} champs)`,
+        "info",
+        { fields: dataKeys }
+      );
+
+      // LOG DÉTAILLÉ: Connexion en cours
+      await this.logDetailedAction(
+        processId,
+        `🔗 Connexion au portail ${siteName}...`,
+        "info"
+      );
+
       // 1. Appeler l'APISimulator pour soumettre la démarche
       const apiResponse = await this.apiSimulator.simulateAPICall(
         siteName,
@@ -76,9 +100,90 @@ export class NavigatorAgent {
         userData
       );
 
+      // LOG DÉTAILLÉ: Connexion réussie
+      await this.logDetailedAction(
+        processId,
+        `✅ Connexion établie avec ${siteName}`,
+        "success"
+      );
+
+      // LOG DÉTAILLÉ: Détails des données envoyées
+      if (userData.nom && userData.prenom) {
+        await this.logDetailedAction(
+          processId,
+          `👤 Identification: ${userData.prenom} ${userData.nom}`,
+          "info"
+        );
+      }
+
+      if (userData.ville) {
+        await this.logDetailedAction(
+          processId,
+          `📍 Localisation: ${userData.ville}`,
+          "info"
+        );
+      }
+
+      if (userData.loyer) {
+        await this.logDetailedAction(
+          processId,
+          `💰 Montant loyer: ${userData.loyer}€`,
+          "info"
+        );
+      }
+
+      if (userData.revenus) {
+        await this.logDetailedAction(
+          processId,
+          `💵 Revenus mensuels: ${userData.revenus}€`,
+          "info"
+        );
+      }
+
+      // LOG DÉTAILLÉ: Soumission formulaire
+      await this.logDetailedAction(
+        processId,
+        `📤 Soumission du formulaire en cours...`,
+        "info"
+      );
+
       const duration = Date.now() - startTime;
 
-      // 2. Logger l'activité dans Firestore (activity_logs)
+      // LOG DÉTAILLÉ: Résultat de la soumission
+      if (apiResponse.statut === "success") {
+        await this.logDetailedAction(
+          processId,
+          `✅ Formulaire envoyé avec succès`,
+          "success",
+          { duration: `${duration}ms` }
+        );
+
+        if (apiResponse.numeroDossier) {
+          await this.logDetailedAction(
+            processId,
+            `📄 Numéro de dossier attribué: ${apiResponse.numeroDossier}`,
+            "success",
+            { numeroDossier: apiResponse.numeroDossier }
+          );
+        }
+
+        if (apiResponse.delaiEstime) {
+          await this.logDetailedAction(
+            processId,
+            `⏱️ Délai estimé de traitement: ${apiResponse.delaiEstime}`,
+            "info"
+          );
+        }
+      } else {
+        await this.logDetailedAction(
+          processId,
+          `⚠️ Soumission avec avertissements`,
+          "warning",
+          { statut: apiResponse.statut }
+        );
+      }
+
+      // 2. Logger l'activité dans Firestore (activity_logs) - Log global
       await this.logActivity(processId, siteName, apiResponse, duration);
 
       // 3. Mettre à jour le processus avec le numéro de dossier si success
@@ -116,6 +221,37 @@ export class NavigatorAgent {
         success: false,
         message: `Erreur lors de la navigation sur ${siteName}: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
       };
+    }
+  }
+
+  /**
+   * Helper pour créer un log détaillé d'action
+   * Permet de créer des logs granulaires pour chaque micro-action
+   *
+   * @param processId - ID du processus
+   * @param message - Message descriptif de l'action
+   * @param type - Type de log (info, success, warning, error)
+   * @param metadata - Métadonnées additionnelles
+   */
+  private async logDetailedAction(
+    processId: string,
+    message: string,
+    type: "info" | "success" | "warning" | "error" = "info",
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    try {
+      await this.firestore.collection("activity_logs").add({
+        processId,
+        type,
+        message,
+        timestamp: Timestamp.now(),
+        agent: "NavigatorAgent",
+        metadata: metadata || {},
+      });
+      console.log(`📝 [${type.toUpperCase()}] ${message}`);
+    } catch (error) {
+      console.error("❌ Erreur logging action détaillée:", error);
+      // Ne pas bloquer le flux si le logging échoue
     }
   }
 
@@ -250,8 +386,32 @@ export class NavigatorAgent {
     try {
       console.log(`🔄 Navigator: Début mapping données pour ${siteName}`);
 
+      // LOG DÉTAILLÉ: Début du mapping
+      await this.logDetailedAction(
+        processId,
+        `🔄 Début transformation des données pour ${siteName}`,
+        "info",
+        { siteName }
+      );
+
+      // LOG DÉTAILLÉ: Analyse des données entrantes
+      const userDataKeys = Object.keys(userData);
+      await this.logDetailedAction(
+        processId,
+        `📊 Analyse de ${userDataKeys.length} champs utilisateur`,
+        "info",
+        { fields: userDataKeys.join(", ") }
+      );
+
       // Construire le prompt de mapping
       const prompt = this.buildMappingPrompt(userData, siteName);
+
+      // LOG DÉTAILLÉ: Appel à l'IA pour mapping
+      await this.logDetailedAction(
+        processId,
+        `🤖 Utilisation de l'IA pour optimiser le mapping`,
+        "info"
+      );
 
       // Appeler Vertex AI pour mapper les données
       const response = await this.vertexAI.generateResponse("FORM_FILLER", prompt);
@@ -262,7 +422,84 @@ export class NavigatorAgent {
 
       const duration = Date.now() - startTime;
 
-      // Logger le mapping dans Firestore
+      // LOG DÉTAILLÉ: Résultat du mapping avec détails
+      await this.logDetailedAction(
+        processId,
+        `✅ Transformation réussie (confiance: ${Math.round((mappingResult.confidence || 0) * 100)}%)`,
+        "success",
+        { 
+          duration: `${duration}ms`,
+          confidence: mappingResult.confidence,
+          mappedFieldsCount: Object.keys(mappingResult.mappedData).length
+        }
+      );
+
+      // LOG DÉTAILLÉ: Champs manquants si présents
+      if (mappingResult.missingFields && mappingResult.missingFields.length > 0) {
+        await this.logDetailedAction(
+          processId,
+          `⚠️ ${mappingResult.missingFields.length} champ(s) manquant(s): ${mappingResult.missingFields.join(", ")}`,
+          "warning",
+          { missingFields: mappingResult.missingFields }
+        );
+      } else {
+        await this.logDetailedAction(
+          processId,
+          `✅ Tous les champs requis sont présents`,
+          "success"
+        );
+      }
+
+      // LOG DÉTAILLÉ: Warnings si présents
+      if (mappingResult.warnings && mappingResult.warnings.length > 0) {
+        for (const warning of mappingResult.warnings) {
+          await this.logDetailedAction(
+            processId,
+            `⚠️ Avertissement: ${warning}`,
+            "warning"
+          );
+        }
+      }
+
+      // LOG DÉTAILLÉ: Afficher quelques champs mappés importants
+      const mappedData = mappingResult.mappedData;
+      if (mappedData.nom || mappedData.NOM_ALLOCATAIRE) {
+        const nom = mappedData.nom || mappedData.NOM_ALLOCATAIRE;
+        await this.logDetailedAction(
+          processId,
+          `   ✏️ Champ "Nom": ${nom}`,
+          "info"
+        );
+      }
+
+      if (mappedData.prenom || mappedData.PRENOM_ALLOCATAIRE) {
+        const prenom = mappedData.prenom || mappedData.PRENOM_ALLOCATAIRE;
+        await this.logDetailedAction(
+          processId,
+          `   ✏️ Champ "Prénom": ${prenom}`,
+          "info"
+        );
+      }
+
+      if (mappedData.ville || mappedData.VILLE) {
+        const ville = mappedData.ville || mappedData.VILLE;
+        await this.logDetailedAction(
+          processId,
+          `   ✏️ Champ "Ville": ${ville}`,
+          "info"
+        );
+      }
+
+      if (mappedData.loyer || mappedData.MONTANT_LOYER) {
+        const loyer = mappedData.loyer || mappedData.MONTANT_LOYER;
+        await this.logDetailedAction(
+          processId,
+          `   ✏️ Champ "Loyer": ${loyer}€`,
+          "info"
+        );
+      }
+
+      // Logger le mapping dans Firestore (log global)
       await this.logMappingActivity(processId, siteName, mappingResult, duration);
 
       console.log(`✅ Navigator: Mapping terminé pour ${siteName} (${duration}ms)`);
@@ -270,6 +507,14 @@ export class NavigatorAgent {
       return mappingResult;
     } catch (error) {
       console.error(`❌ Navigator: Erreur mapping pour ${siteName}:`, error);
+
+      // LOG DÉTAILLÉ: Erreur lors du mapping
+      await this.logDetailedAction(
+        processId,
+        `❌ Erreur lors du mapping: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+        "error",
+        { error: String(error) }
+      );
 
       // Retourner mapping par défaut (userData tel quel)
       return {

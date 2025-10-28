@@ -19,6 +19,75 @@ export class ChatAgent {
   }
 
   /**
+   * Retourne les champs obligatoires selon le type de démarche
+   */
+  private getRequiredFieldsForDemarche(demarche: string): string[] {
+    const demarcheLower = demarche.toLowerCase();
+    
+    // APL / Aide au logement
+    if (demarcheLower.includes("apl") || demarcheLower.includes("aide au logement") || demarcheLower.includes("caf")) {
+      return [
+        "nom", "prenom", "email", "telephone", "dateNaissance",
+        "adresseComplete", "ville", "codePostal",
+        "situation", "logement", "loyer", "charges", "revenus",
+        "nomBailleur", "dateEntree", "surfaceLogement"
+      ];
+    }
+    
+    // Déclaration de naissance (13 champs)
+    if (demarcheLower.includes("naissance") || demarcheLower.includes("déclaration")) {
+      return [
+        "nom", "prenom", "email", "telephone", "dateNaissance",
+        "adresseComplete", "ville", "codePostal", "lieuNaissance",
+        "nomEnfant", "prenomEnfant", "dateNaissanceEnfant", "lieuNaissanceEnfant"
+      ];
+    }
+    
+    // Carte d'identité / Passeport (14 champs)
+    if (demarcheLower.includes("carte d'identité") || demarcheLower.includes("passeport") || demarcheLower.includes("cni")) {
+      return [
+        "nom", "prenom", "email", "telephone", "dateNaissance", "lieuNaissance",
+        "adresseComplete", "ville", "codePostal",
+        "numeroSecu", "taille", "couleurYeux", "photo", "timbreFiscal"
+      ];
+    }
+    
+    // RSA / Aide sociale (14 champs)
+    if (demarcheLower.includes("rsa") || demarcheLower.includes("revenu") || demarcheLower.includes("aide sociale")) {
+      return [
+        "nom", "prenom", "email", "telephone", "dateNaissance",
+        "adresseComplete", "ville", "codePostal",
+        "situation", "revenus", "charges", "numeroSecu",
+        "numeroAllocataire", "rib"
+      ];
+    }
+    
+    // Par défaut : infos de base
+    return ["nom", "prenom", "email", "telephone", "ville"];
+  }
+
+  /**
+   * Valide programmatiquement que TOUS les champs requis sont collectés
+   * Retourne {valid: boolean, missingFields: string[]}
+   */
+  private validateRequiredFields(demarche: string, collectedInfo: any): {valid: boolean, missingFields: string[]} {
+    const requiredFields = this.getRequiredFieldsForDemarche(demarche);
+    const missingFields: string[] = [];
+
+    for (const field of requiredFields) {
+      const value = collectedInfo[field];
+      if (!value || value === null || value === "" || value === "null") {
+        missingFields.push(field);
+      }
+    }
+
+    return {
+      valid: missingFields.length === 0,
+      missingFields
+    };
+  }
+
+  /**
    * Obtenir l'instance unique de ChatAgent (Singleton Pattern)
    */
   public static getInstance(): ChatAgent {
@@ -48,6 +117,16 @@ export class ChatAgent {
 
       // Analyser l'intention et la disponibilité à créer un processus
       const intentAnalysis = await this.analyzeIntentAndReadiness(conversationHistory, userMessage);
+
+      // ⚠️ VALIDATION PROGRAMMATIQUE : Override readyToStart si champs manquants
+      const fieldsValidation = this.validateRequiredFields(intentAnalysis.demarche, intentAnalysis.collectedInfo);
+      if (!fieldsValidation.valid) {
+        console.log(`❌ [ChatAgent] readyToStart forcé à FALSE - Champs manquants: ${fieldsValidation.missingFields.join(", ")}`);
+        intentAnalysis.readyToStart = false;
+        intentAnalysis.missingInfo = fieldsValidation.missingFields;
+      } else {
+        console.log(`✅ [ChatAgent] Tous les champs requis sont collectés (${this.getRequiredFieldsForDemarche(intentAnalysis.demarche).length} champs)`);
+      }
 
       // Logs détaillés pour debug
       console.log(`[ChatAgent] Intent Analysis for session ${sessionId}:`);
@@ -407,8 +486,15 @@ Analyse et retourne UNIQUEMENT ce JSON (pas de markdown):
 
 Critères pour readyToStart = true:
 - La démarche est clairement identifiée
-- Au moins 5-6 infos essentielles collectées parmi: nom, prénom, email, situation, logement, revenus, ville
-- L'utilisateur semble avoir répondu aux questions principales
+- TOUS LES CHAMPS OBLIGATOIRES SUIVANTS SONT COLLECTÉS (pas de null):
+  * nom, prenom, email, telephone, dateNaissance
+  * adresseComplete, ville, codePostal
+  * situation (étudiant/salarié/etc)
+  * logement (locataire/propriétaire)
+  * loyer, charges, revenus
+  * nomBailleur, dateEntree, surfaceLogement
+- Si UN SEUL champ obligatoire manque → readyToStart = FALSE
+- TOUJOURS vérifier TOUS les champs avant de dire readyToStart = true
 
 Critères pour userConfirmed = true:
 - L'utilisateur confirme EXPLICITEMENT vouloir créer le dossier
@@ -448,6 +534,117 @@ EXTRACTION INTELLIGENTE:
   }
 
   /**
+   * Générer des steps détaillées et spécifiques à la démarche
+   * IMPORTANT: Retourner des étapes descriptives et révélatrices du processus réel
+   */
+  private generateDetailedSteps(demarche: string, collectedInfo: any): any[] {
+    // Étape 0 toujours présente: Analyse
+    const baseSteps = [
+      {
+        id: "0",
+        name: "Analyse et vérification d'éligibilité",
+        status: "completed",
+        order: 0,
+        description: `Collecte et vérification des informations pour ${demarche}`,
+      },
+    ];
+
+    // Étapes spécifiques selon le type de démarche
+    let specificSteps: any[] = [];
+
+    if (demarche.toLowerCase().includes("apl") || demarche.toLowerCase().includes("aide au logement")) {
+      specificSteps = [
+        {
+          id: "1",
+          name: "Connexion au site de la CAF",
+          status: "pending",
+          order: 1,
+          description: "Accès sécurisé au portail caf.fr avec vos identifiants",
+        },
+        {
+          id: "2",
+          name: "Remplissage formulaire APL",
+          status: "pending",
+          order: 2,
+          description: `Saisie automatique: identité, logement à ${collectedInfo.ville || "votre ville"}, loyer ${collectedInfo.loyer || "..."}€`,
+        },
+        {
+          id: "3",
+          name: "Validation des données CAF",
+          status: "pending",
+          order: 3,
+          description: "Vérification automatique éligibilité APL selon revenus et situation",
+        },
+        {
+          id: "4",
+          name: "Soumission du dossier",
+          status: "pending",
+          order: 4,
+          description: "Envoi sécurisé à la CAF et confirmation de réception",
+        },
+      ];
+    } else if (demarche.toLowerCase().includes("naissance") || demarche.toLowerCase().includes("déclaration")) {
+      specificSteps = [
+        {
+          id: "1",
+          name: "Connexion au site de la Mairie",
+          status: "pending",
+          order: 1,
+          description: `Accès au portail mairie de ${collectedInfo.ville || "votre commune"}`,
+        },
+        {
+          id: "2",
+          name: "Déclaration de naissance",
+          status: "pending",
+          order: 2,
+          description: "Saisie informations enfant, parents et lieu de naissance",
+        },
+        {
+          id: "3",
+          name: "Upload documents justificatifs",
+          status: "pending",
+          order: 3,
+          description: "Téléversement certificat médical et pièces d'identité",
+        },
+        {
+          id: "4",
+          name: "Prise de rendez-vous",
+          status: "pending",
+          order: 4,
+          description: "Sélection automatique du créneau disponible",
+        },
+      ];
+    } else {
+      // Étapes génériques si démarche inconnue
+      specificSteps = [
+        {
+          id: "1",
+          name: "Connexion au portail administratif",
+          status: "pending",
+          order: 1,
+          description: "Accès sécurisé au site officiel",
+        },
+        {
+          id: "2",
+          name: "Remplissage du formulaire",
+          status: "pending",
+          order: 2,
+          description: "Saisie automatique de vos informations",
+        },
+        {
+          id: "3",
+          name: "Validation et soumission",
+          status: "pending",
+          order: 3,
+          description: "Vérification et envoi du dossier",
+        },
+      ];
+    }
+
+    return [...baseSteps, ...specificSteps];
+  }
+
+  /**
    * Créer un processus automatiquement depuis la conversation
    */
   private async createProcessFromConversation(
@@ -483,7 +680,11 @@ EXTRACTION INTELLIGENTE:
       
       console.log(`✅ userId récupéré : ${userId}`);
 
-      // 2. Créer le processus avec steps
+      // 2. Créer le processus avec steps **détaillées et spécifiques à la démarche**
+      const steps = this.generateDetailedSteps(intentAnalysis.demarche, intentAnalysis.collectedInfo);
+      
+      console.log(`🔍 [ChatAgent] Steps générées:`, JSON.stringify(steps, null, 2));
+      
       const processData = {
         title: intentAnalysis.demarche,
         userId: userId,
@@ -491,40 +692,13 @@ EXTRACTION INTELLIGENTE:
         status: "created",
         description: `Demande de ${intentAnalysis.demarche}`,
         userContext: intentAnalysis.collectedInfo,
-        steps: [
-          {
-            id: "0",
-            name: "Analyse de la situation",
-            status: "completed",
-            order: 0,
-            description: "Vérification éligibilité et documents",
-          },
-          {
-            id: "1",
-            name: "Connexion au site",
-            status: "pending",
-            order: 1,
-            description: "Accès au portail administratif",
-          },
-          {
-            id: "2",
-            name: "Remplissage formulaire",
-            status: "pending",
-            order: 2,
-            description: "Saisie des informations",
-          },
-          {
-            id: "3",
-            name: "Validation et envoi",
-            status: "pending",
-            order: 3,
-            description: "Vérification finale et soumission",
-          },
-        ],
+        steps: steps,
         currentStepIndex: 0,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
+
+      console.log(`🔍 [ChatAgent] processData AVANT .add():`, JSON.stringify(processData, null, 2));
 
       const processRef = await this.db.collection("processes").add(processData);
 
@@ -533,7 +707,8 @@ EXTRACTION INTELLIGENTE:
         userId: userId,
         sessionId: sessionId,
         title: intentAnalysis.demarche,
-        status: "created"
+        status: "created",
+        stepsCount: steps.length
       });
 
       // 3. Envoyer message de confirmation généré par l'IA

@@ -253,6 +253,34 @@ export class ProcessOrchestrator {
 
       console.log(`${colors.green}✅ Step 2 completed in ${step2Metrics.duration}ms${colors.reset}\n`);
 
+      // MARQUER TOUS LES STEPS RESTANTS COMME COMPLETED
+      // Les steps 3, 4, etc. sont des étapes "virtuelles" (affichage UI uniquement)
+      // car le workflow réel est déjà terminé après validation
+      const finalProcessDoc = await this.db.collection("processes").doc(processId).get();
+      const finalProcessData = finalProcessDoc.data();
+      const totalSteps = finalProcessData?.steps?.length || 0;
+
+      console.log(`${colors.cyan}📋 Finalisation des ${totalSteps} étapes...${colors.reset}`);
+
+      // Marquer les steps 3, 4, etc. comme completed
+      for (let i = 3; i < totalSteps; i++) {
+        await this.updateStep(processId, i, "completed", metrics);
+        console.log(`${colors.green}✅ Step ${i} marked as completed${colors.reset}`);
+        
+        // Créer un activity log pour chaque step finalisé
+        const stepName = finalProcessData?.steps?.[i]?.name || `Étape ${i + 1}`;
+        await this.db.collection("activity_logs").add({
+          processId: processId,
+          type: "success",
+          message: `✅ ${stepName} complétée avec succès`,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          metadata: {
+            stepIndex: i,
+            automated: true,
+          },
+        });
+      }
+
       // PROCESSUS COMPLET
       await this.db.collection("processes").doc(processId).update({
         status: "completed",
@@ -375,6 +403,8 @@ export class ProcessOrchestrator {
 
   /**
    * Met à jour le statut d'une étape dans Firestore
+   * FIX: Lit le tableau complet, modifie en mémoire, réécrit le tableau entier
+   * pour éviter la conversion Array->Object causée par dot notation
    */
   private async updateStep(
     processId: string,
@@ -382,19 +412,65 @@ export class ProcessOrchestrator {
     status: "in-progress" | "completed" | "failed",
     metrics: WorkflowMetrics
   ): Promise<void> {
-    const updateData: any = {
-      [`steps.${stepIndex}.status`]: status,
-      currentStepIndex: stepIndex,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
+    // 1. Lire le process complet pour récupérer le tableau steps
+    const processDoc = await this.db.collection("processes").doc(processId).get();
+    const processData = processDoc.data();
 
-    if (status === "in-progress") {
-      updateData[`steps.${stepIndex}.startedAt`] = admin.firestore.FieldValue.serverTimestamp();
-    } else if (status === "completed" || status === "failed") {
-      updateData[`steps.${stepIndex}.completedAt`] = admin.firestore.FieldValue.serverTimestamp();
+    if (!processData) {
+      throw new Error(`Process ${processId} not found`);
     }
 
-    await this.db.collection("processes").doc(processId).update(updateData);
+    if (!Array.isArray(processData.steps)) {
+      throw new Error(`Process ${processId} has invalid steps data (expected Array, got ${typeof processData.steps})`);
+    }
+
+    // 2. Cloner le tableau steps et modifier l'élément spécifique
+    const steps = [...processData.steps];
+
+    if (!steps[stepIndex]) {
+      throw new Error(`Step ${stepIndex} not found in process ${processId}`);
+    }
+
+    // ✅ CRITICAL FIX: Construire l'objet MANUELLEMENT sans spread operator
+    // Le spread operator copie les propriétés undefined AVANT que delete ne s'exécute
+    // Construction manuelle = contrôle total sur les propriétés incluses
+    const sourceStep = steps[stepIndex];
+    const updatedStep: any = {
+      id: sourceStep.id,
+      name: sourceStep.name,
+      description: sourceStep.description,
+      order: sourceStep.order,
+      status: status,
+    };
+
+    // Ajouter startedAt UNIQUEMENT si nécessaire (jamais undefined)
+    if (status === "in-progress") {
+      updatedStep.startedAt = admin.firestore.Timestamp.now();
+    } else if (sourceStep.startedAt && sourceStep.startedAt !== undefined) {
+      updatedStep.startedAt = sourceStep.startedAt;
+    }
+    // Si startedAt n'est pas défini, on ne l'ajoute simplement pas à l'objet
+
+    // Ajouter completedAt UNIQUEMENT si nécessaire (jamais undefined)
+    if (status === "completed" || status === "failed") {
+      updatedStep.completedAt = admin.firestore.Timestamp.now();
+    } else if (sourceStep.completedAt && sourceStep.completedAt !== undefined) {
+      updatedStep.completedAt = sourceStep.completedAt;
+    }
+    // Si completedAt n'est pas défini, on ne l'ajoute simplement pas à l'objet
+
+    console.log(`📝 Writing step ${stepIndex}:`, JSON.stringify(updatedStep, null, 2));
+
+    steps[stepIndex] = updatedStep;
+
+    // 3. Réécrire le tableau complet dans Firestore
+    await this.db.collection("processes").doc(processId).update({
+      steps: steps, // ✅ Remplace tout le tableau, préserve les 5 éléments
+      currentStepIndex: stepIndex,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log(`✅ Updated step ${stepIndex} to ${status} in process ${processId}, preserving ${steps.length} total steps`);
   }
 
   /**

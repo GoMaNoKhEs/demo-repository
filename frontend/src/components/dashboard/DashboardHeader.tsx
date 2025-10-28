@@ -50,13 +50,37 @@ export const DashboardHeader = () => {
   // Afficher un placeholder si pas de processus
   if (!currentProcess) {
     return (
-      <Box sx={{ mb: 3, p: 3, bgcolor: 'grey.100', borderRadius: 2 }}>
-        <Typography variant="h5" color="text.secondary">
-          Aucune mission en cours
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Démarrez une conversation pour commencer une mission.
-        </Typography>
+      <Box sx={{ mb: 3 }}>
+        {/* 🎨 Header toujours visible avec boutons */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mb: 2 
+        }}>
+          <Typography 
+            variant="h4" 
+            fontWeight="bold"
+            color="text.secondary"
+            sx={{
+              fontSize: { xs: '1.25rem', sm: '1.75rem', md: '2rem' },
+            }}
+          >
+            Aucune mission en cours
+          </Typography>
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box className="theme-toggle">
+              <ThemeToggleButton />
+            </Box>
+          </Box>
+        </Box>
+        
+        <Box sx={{ p: 3, bgcolor: 'grey.100', borderRadius: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Démarrez une conversation pour commencer une mission.
+          </Typography>
+        </Box>
       </Box>
     );
   }

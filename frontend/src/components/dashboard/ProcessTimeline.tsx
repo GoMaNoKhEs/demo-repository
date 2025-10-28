@@ -19,8 +19,33 @@ export const ProcessTimeline = ({ steps, currentStepIndex }: ProcessTimelineProp
   // Ref pour suivre si le confetti a déjà été déclenché
   const confettiTriggered = useRef(false);
 
+  // 🔥 FIX : Normaliser les steps (peut être Array OU Object)
+  const normalizedSteps: ProcessStep[] = (() => {
+    if (!steps) return [];
+    
+    // Si c'est déjà un array, retourner tel quel
+    if (Array.isArray(steps)) {
+      return steps;
+    }
+    
+    // Si c'est un objet {"0": {...}, "1": {...}}, convertir en array
+    if (typeof steps === 'object') {
+      console.log('[ProcessTimeline] 🔄 Converting steps object to array');
+      const stepsArray = Object.entries(steps as Record<string, any>).map(([key, value]) => ({
+        ...value,
+        id: key,
+        order: parseInt(key, 10),
+      }));
+      console.log('[ProcessTimeline] ✅ Converted steps:', stepsArray);
+      return stepsArray;
+    }
+    
+    console.warn('[ProcessTimeline] ⚠️ Steps format invalide:', typeof steps);
+    return [];
+  })();
+
   // 🔥 FIX : Vérifier que steps est un tableau avant d'appeler .every()
-  const allStepsCompleted = Array.isArray(steps) && steps.every(step => step.status === 'completed');
+  const allStepsCompleted = normalizedSteps.length > 0 && normalizedSteps.every(step => step.status === 'completed');
 
   // Déclencher le confetti quand toutes les étapes sont complétées (une seule fois)
   useEffect(() => {
@@ -89,10 +114,41 @@ export const ProcessTimeline = ({ steps, currentStepIndex }: ProcessTimelineProp
     }
   };
 
+  // ✅ FIX: Fonction helper pour convertir n'importe quel timestamp en millisecondes
+  const getTimestamp = (timestamp: any): number => {
+    if (!timestamp) return Date.now();
+    
+    // Si c'est déjà un objet Date
+    if (timestamp instanceof Date) {
+      return timestamp.getTime();
+    }
+    
+    // Si c'est un Firestore Timestamp avec toDate()
+    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+      return timestamp.toDate().getTime();
+    }
+    
+    // Si c'est un objet Firestore Timestamp brut {seconds, nanoseconds}
+    if (timestamp.seconds !== undefined) {
+      return timestamp.seconds * 1000 + Math.floor((timestamp.nanoseconds || 0) / 1000000);
+    }
+    
+    // Si c'est un nombre (timestamp Unix)
+    if (typeof timestamp === 'number') {
+      return timestamp;
+    }
+    
+    // Fallback: now
+    return Date.now();
+  };
+
   const getDuration = (step: ProcessStep) => {
     if (!step.startedAt) return null;
-    const end = step.completedAt || new Date();
-    const duration = Math.floor((end.getTime() - step.startedAt.getTime()) / 1000);
+    
+    const startTime = getTimestamp(step.startedAt);
+    const endTime = step.completedAt ? getTimestamp(step.completedAt) : Date.now();
+    
+    const duration = Math.floor((endTime - startTime) / 1000);
     
     if (duration < 60) return `${duration}s`;
     const minutes = Math.floor(duration / 60);
@@ -100,8 +156,10 @@ export const ProcessTimeline = ({ steps, currentStepIndex }: ProcessTimelineProp
     return `${minutes}m ${seconds}s`;
   };
 
-  // 🔥 FIX : Vérifier que steps est un tableau avant de créer sortedSteps
-  const sortedSteps = Array.isArray(steps) ? [...steps].sort((a, b) => a.order - b.order) : [];
+  // 🔥 FIX : Utiliser normalizedSteps au lieu de steps
+  const sortedSteps = [...normalizedSteps].sort((a, b) => a.order - b.order);
+  
+  console.log('[ProcessTimeline] 📊 Rendering timeline with', sortedSteps.length, 'steps');
 
   return (
     <Box sx={{ position: 'relative', py: 2 }}>

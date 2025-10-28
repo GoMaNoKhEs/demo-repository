@@ -218,6 +218,9 @@ export const DashboardPage = () => {
       console.log('[Dashboard] ✅ User authenticated:', user.email);
       console.log('[Dashboard] ✅ Listening to messages for session:', sessionId);
       
+      // 🔥 FIX : Variable pour stocker l'unsubscribe des logs
+      let unsubscribeLogs: (() => void) | null = null;
+      
       // 🔥 AJOUT : S'abonner aux processus créés pour cette session
       const unsubscribeProcess = subscribeToProcess(
         sessionId,
@@ -226,10 +229,10 @@ export const DashboardPage = () => {
           setCurrentProcess(process);
           setIsLoading(false);
           
-          // S'abonner aux activity_logs du processus
-          if (process.id) {
+          // S'abonner aux activity_logs du processus (une seule fois par processId)
+          if (process.id && !unsubscribeLogs) {
             console.log('[Dashboard] 📊 Subscribing to activity_logs for processId:', process.id);
-            const unsubscribeLogs = subscribeToActivityLogs(
+            unsubscribeLogs = subscribeToActivityLogs(
               process.id,
               (logs) => {
                 console.log('[Dashboard] ✅ Activity logs received:', logs.length);
@@ -240,9 +243,6 @@ export const DashboardPage = () => {
                 notifications.error('Erreur de chargement des logs');
               }
             );
-            
-            // Cleanup des logs quand le composant unmount
-            return () => unsubscribeLogs();
           }
         },
         (error) => {
@@ -277,11 +277,14 @@ export const DashboardPage = () => {
       
       setIsLoading(false);
       
-      // Cleanup
+      // Cleanup : nettoyer TOUTES les subscriptions
       return () => {
-        console.log('[Dashboard] 🔌 Unsubscribing from messages and processes for session:', sessionId);
+        console.log('[Dashboard] 🔌 Unsubscribing from messages, processes, and logs for session:', sessionId);
         unsubscribeMessages();
         unsubscribeProcess();
+        if (unsubscribeLogs) {
+          unsubscribeLogs();
+        }
       };
     } else {
       console.warn('[Dashboard] ⏳ Waiting for user and sessionId...', { user: !!user, sessionId });

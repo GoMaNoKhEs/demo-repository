@@ -45,12 +45,47 @@ export const subscribeToProcess = (
           id: doc.id,
           userId: data.userId,
           sessionId: data.sessionId,
-          status: data.status
+          status: data.status,
+          hasSteps: !!data.steps,
+          stepsType: typeof data.steps,
+          stepsLength: data.steps ? data.steps.length : 0
         });
+        
+        // 🔍 LOG DÉTAILLÉ DES STEPS
+        if (data.steps) {
+          console.log('[Realtime] ✅ Steps présents:', JSON.stringify(data.steps, null, 2));
+        } else {
+          console.log('[Realtime] ❌ AUCUN STEPS dans les données Firestore!');
+          console.log('[Realtime] 📋 Toutes les clés du document:', Object.keys(data));
+        }
+        
+        // ✅ FIX: Convertir les timestamps Firestore imbriqués dans steps
+        let steps = data.steps;
+        if (steps) {
+          if (Array.isArray(steps)) {
+            // Format Array: convertir les timestamps de chaque step
+            steps = steps.map(step => ({
+              ...step,
+              startedAt: step.startedAt?.toDate?.() || step.startedAt,
+              completedAt: step.completedAt?.toDate?.() || step.completedAt,
+            }));
+          } else if (typeof steps === 'object') {
+            // Format Object (ancien orchestrator): convertir les timestamps de chaque clé
+            steps = Object.entries(steps).reduce((acc, [key, value]: [string, any]) => {
+              acc[key] = {
+                ...value,
+                startedAt: value.startedAt?.toDate?.() || value.startedAt,
+                completedAt: value.completedAt?.toDate?.() || value.completedAt,
+              };
+              return acc;
+            }, {} as Record<string, any>);
+          }
+        }
         
         const process: Process = {
           id: doc.id,
           ...data,
+          steps: steps, // ✅ Utiliser steps avec timestamps convertis
           // Gérer les timestamps qui peuvent être null avec serverTimestamp
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),

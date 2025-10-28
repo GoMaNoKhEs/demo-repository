@@ -21,6 +21,12 @@ admin.initializeApp();
 // Export du Firestore pour utilisation dans les services
 export const db = admin.firestore();
 
+// ✅ CRITICAL FIX: Ignorer les propriétés undefined dans Firestore
+// Évite les erreurs "Cannot use undefined as a Firestore value"
+db.settings({
+  ignoreUndefinedProperties: true,
+});
+
 // ============================================
 // FIRESTORE TRIGGERS - PROCESSES
 // ============================================

@@ -45,7 +45,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "processId", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "ASCENDING" }
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     }
   ]

@@ -27,6 +27,37 @@ export class ValidatorAgent {
   }
 
   /**
+   * Helper pour créer un log détaillé d'action
+   * Permet de créer des logs granulaires pour chaque micro-action
+   *
+   * @param processId - ID du processus
+   * @param message - Message descriptif de l'action
+   * @param type - Type de log (info, success, warning, error)
+   * @param metadata - Métadonnées additionnelles
+   */
+  private async logDetailedAction(
+    processId: string,
+    message: string,
+    type: "info" | "success" | "warning" | "error" = "info",
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    try {
+      await this.firestore.collection("activity_logs").add({
+        processId,
+        type,
+        message,
+        timestamp: Timestamp.now(),
+        agent: "ValidatorAgent",
+        metadata: metadata || {},
+      });
+      console.log(`📝 [${type.toUpperCase()}] ${message}`);
+    } catch (error) {
+      console.error("❌ Erreur logging action détaillée:", error);
+      // Ne pas bloquer le flux si le logging échoue
+    }
+  }
+
+  /**
    * Récupère l'instance unique du ValidatorAgent
    */
   public static getInstance(): ValidatorAgent {
@@ -38,6 +69,7 @@ export class ValidatorAgent {
 
   /**
    * Valide les données avant soumission
+   * ADAPTATIF : valide selon le type de démarche
    *
    * @param processId - ID du processus
    * @param mappedData - Données mappées à valider
@@ -52,8 +84,46 @@ export class ValidatorAgent {
     try {
       console.log(`✅ Validation démarrée pour processus ${processId}`);
 
-      // Construire le prompt de validation
-      const prompt = this.buildValidationPrompt(mappedData);
+      // LOG DÉTAILLÉ: Début de la validation
+      await this.logDetailedAction(
+        processId,
+        `🔍 Début de la validation des données`,
+        "info"
+      );
+
+      // 🔥 RÉCUPÉRER LE TYPE DE DÉMARCHE depuis Firestore
+      const processDoc = await this.firestore.collection("processes").doc(processId).get();
+      const processData = processDoc.data();
+      const typeDemarche = processData?.type_demarche?.toLowerCase() || "generale";
+
+      console.log(`📋 Type de démarche détecté: ${typeDemarche}`);
+
+      // LOG DÉTAILLÉ: Type de démarche détecté
+      await this.logDetailedAction(
+        processId,
+        `📋 Type de démarche: ${typeDemarche}`,
+        "info",
+        { typeDemarche }
+      );
+
+      // LOG DÉTAILLÉ: Nombre de champs à valider
+      const fieldsCount = Object.keys(mappedData).length;
+      await this.logDetailedAction(
+        processId,
+        `📊 Validation de ${fieldsCount} champs`,
+        "info",
+        { fieldsCount }
+      );
+
+      // Construire le prompt de validation ADAPTATIF
+      const prompt = this.buildValidationPrompt(mappedData, typeDemarche);
+
+      // LOG DÉTAILLÉ: Utilisation IA pour validation
+      await this.logDetailedAction(
+        processId,
+        `🤖 Analyse intelligente avec IA`,
+        "info"
+      );
 
       // Appeler Vertex AI pour validation
       const response = await this.vertexAI.generateResponse("VALIDATOR", prompt);
@@ -64,14 +134,83 @@ export class ValidatorAgent {
 
       const duration = Date.now() - startTime;
 
-      // Logger le résultat dans Firestore
+      // LOG DÉTAILLÉ: Résultat de validation
+      if (validation.valid) {
+        await this.logDetailedAction(
+          processId,
+          `✅ Validation réussie - Toutes les données sont conformes`,
+          "success",
+          { duration: `${duration}ms`, confidence: validation.confidence }
+        );
+      } else {
+        const criticalErrors = validation.errors.filter((e) => e.severity === "critical");
+        const warnings = validation.errors.filter((e) => e.severity === "warning");
+
+        await this.logDetailedAction(
+          processId,
+          `❌ Validation échouée: ${criticalErrors.length} erreur(s) critique(s), ${warnings.length} avertissement(s)`,
+          "error",
+          { 
+            criticalCount: criticalErrors.length,
+            warningCount: warnings.length,
+            duration: `${duration}ms`
+          }
+        );
+
+        // LOG DÉTAILLÉ: Détail de chaque erreur critique
+        for (const error of criticalErrors) {
+          await this.logDetailedAction(
+            processId,
+            `   ❌ ${error.field}: ${error.message}`,
+            "error",
+            { field: error.field, severity: error.severity }
+          );
+        }
+
+        // LOG DÉTAILLÉ: Détail de chaque warning
+        for (const warning of warnings) {
+          await this.logDetailedAction(
+            processId,
+            `   ⚠️ ${warning.field}: ${warning.message}`,
+            "warning",
+            { field: warning.field, severity: warning.severity }
+          );
+        }
+
+        // LOG DÉTAILLÉ: Recommandations
+        if (validation.recommendations && validation.recommendations.length > 0) {
+          await this.logDetailedAction(
+            processId,
+            `💡 ${validation.recommendations.length} recommandation(s) suggérée(s)`,
+            "info"
+          );
+
+          for (const recommendation of validation.recommendations) {
+            await this.logDetailedAction(
+              processId,
+              `   💡 ${recommendation}`,
+              "info"
+            );
+          }
+        }
+      }
+
+      // Logger le résultat dans Firestore (log global)
       await this.logValidation(processId, validation, duration);
 
-      console.log(`✅ Validation terminée pour ${processId} - Valid: ${validation.valid} (${duration}ms)`);
+      console.log(`✅ Validation terminée pour ${processId} (${typeDemarche}) - Valid: ${validation.valid} (${duration}ms)`);
 
       return validation;
     } catch (error) {
       console.error(`❌ Erreur validation pour ${processId}:`, error);
+
+      // LOG DÉTAILLÉ: Erreur système
+      await this.logDetailedAction(
+        processId,
+        `❌ Erreur système lors de la validation: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+        "error",
+        { error: String(error) }
+      );
 
       // Logger l'erreur
       await this.logValidationError(processId, error);
@@ -93,119 +232,137 @@ export class ValidatorAgent {
   }
 
   /**
-   * Construit le prompt de validation pour Vertex AI
+   * Construit le prompt de validation ADAPTATIF selon le type de démarche
    */
-  private buildValidationPrompt(mappedData: any): string {
-    return `Tu es un validateur STRICT de données administratives françaises.
+  private buildValidationPrompt(mappedData: any, typeDemarche: string): string {
+    // Champs de base communs à toutes les démarches
+    const baseValidation = `
+## FORMATS OBLIGATOIRES (Toutes démarches)
 
-**DONNÉES À VALIDER :**
-${JSON.stringify(mappedData, null, 2)}
+1. Email : xxx@yyy.zzz avec @ et domaine valide
+2. Téléphone : exactement 10 chiffres (06/07 mobile, 01-05/09 fixe)
+3. Code postal : exactement 5 chiffres (01000-99999)
+4. Dates complètes : format ISO (YYYY-MM-DD) ou français (DD/MM/YYYY), cohérentes
+5. Dates de naissance : entre 1900 et aujourd'hui
+6. Date d'entrée logement (dateEntree) : format MM/YYYY (ex: "01/2025") OU DD/MM/YYYY OU YYYY-MM-DD
+`;
 
-**RÈGLES DE VALIDATION :**
+    // Règles spécifiques selon le type de démarche
+    let specificRules = "";
 
-1. **FORMATS OBLIGATOIRES** :
-   - Email : format standard (xxx@yyy.zzz) avec @ et domaine valide
-   - Téléphone : exactement 10 chiffres (06/07 pour mobile, 01-05/09 pour fixe)
-   - Code postal : exactement 5 chiffres entre 01000 et 99999
-   - Date : format ISO (YYYY-MM-DD) ou français (DD/MM/YYYY), cohérent
-   - RIB : format IBAN français (FR + 25 chiffres) ou RIB classique (23 chiffres)
-   - Numéro sécu : 15 chiffres (1/2 + année + mois + département + commune + ordre + clé)
+    if (typeDemarche.includes("apl") || typeDemarche.includes("logement")) {
+      specificRules = `
+## RÈGLES SPÉCIFIQUES APL
 
-2. **COHÉRENCE TEMPORELLE** :
-   - Date de naissance : entre 1900 et aujourd'hui
-   - Dates futures : interdites (sauf rendez-vous)
-   - Ordre logique : date début < date fin
+Champs obligatoires APL :
+- nom, prenom, email, telephone, dateNaissance
+- adresseComplete, ville, codePostal
+- situation (propriétaire/locataire/hébergé)
+- logement (appartement/maison/studio/colocation)
+- loyer, charges, revenus
+- nomBailleur, dateEntree, surfaceLogement
 
-3. **MONTANTS ET VALEURS NUMÉRIQUES** :
-   - Tous les montants doivent être >= 0
-   - Revenus mensuels : entre 0€ et 50000€ (réaliste)
-   - Loyer mensuel : entre 50€ et 10000€ (réaliste)
-   - Âge : entre 0 et 120 ans
+Règles métier APL :
+- Loyer < Revenus × 3 (ratio d'endettement 33%)
+- Revenus > 0 (obligatoire pour calcul APL)
+- Situation = "locataire" (APL réservée aux locataires)
+- Surface > 9m² (loi Carrez minimum)
+- Date entrée < aujourd'hui (cohérence temporelle)
+`;
+    } else if (typeDemarche.includes("naissance") || typeDemarche.includes("déclaration")) {
+      specificRules = `
+## RÈGLES SPÉCIFIQUES NAISSANCE
 
-4. **RÈGLES MÉTIER FRANÇAISES (CRITICAL)** :
-   
-   **CAF - APL** :
-   - Loyer DOIT être < Revenus × 3 (ratio d'endettement max 33%)
-   - Revenus mensuels > 0 (sauf RSA)
-   - Si propriétaire : APL INTERDITE (réservée locataires)
-   
-   **CAF - RSA** :
-   - Revenus mensuels <= 607€ (plafond RSA 2025 personne seule)
-   - Si revenus > 607€ : INÉLIGIBLE (severity: critical)
-   - Âge >= 25 ans (sauf jeunes parents ou femmes enceintes)
-   
-   **IMPORTANT - Calcul logique RSA** :
-   - Exemple 1 : Revenus 500€ → 500 <= 607 → **ÉLIGIBLE** 
-   - Exemple 2 : Revenus 607€ → 607 <= 607 → **ÉLIGIBLE** 
-   - Exemple 3 : Revenus 800€ → 800 > 607 → **INÉLIGIBLE** 
-   - NE PAS inverser la logique de comparaison !
-   
-   **ANTS - Passeport/CNI** :
-   - Photo format ANTS obligatoire (35mm × 45mm, moins de 6 mois)
-   - Justificatif domicile < 6 mois obligatoire
-   - Timbre fiscal : 86€ pour passeport, gratuit pour CNI
-   
-   **Pôle Emploi** :
-   - Attestation employeur OBLIGATOIRE (certificat travail)
-   - RIB OBLIGATOIRE pour versement allocations
-   - Email + téléphone OBLIGATOIRES (contact)
-   
-   **Sécurité Sociale** :
-   - Numéro sécu OBLIGATOIRE (15 chiffres valides)
-   - RIB OBLIGATOIRE pour remboursements
-   
-   **Impôts** :
-   - Numéro fiscal : 13 chiffres obligatoires
-   - Revenu fiscal référence > 0 (sauf non imposable)
-   
-   **Préfecture - Titre séjour** :
-   - Passeport valide OBLIGATOIRE
-   - Justificatif ressources OBLIGATOIRE
-   
-   **URSSAF - Auto-entrepreneur** :
-   - SIRET : 14 chiffres (9 SIREN + 5 NIC)
-   - Activité déclarée OBLIGATOIRE
+Champs obligatoires Naissance :
+- nom, prenom, email, telephone, dateNaissance
+- adresseComplete, ville, codePostal, lieuNaissance
+- nomEnfant, prenomEnfant, dateNaissanceEnfant, lieuNaissanceEnfant
 
-5. **COMPLÉTUDE** :
-   - Champs "required: true" OBLIGATOIRES (severity: critical si manquant)
-   - Valeurs non vides : pas "", null, undefined
+Règles métier Naissance :
+- Date naissance enfant < 5 jours (déclaration sous 5 jours)
+- Date naissance enfant <= aujourd'hui
+- Parent majeur (dateNaissance parent < aujourd'hui - 18 ans)
+- Lieu naissance enfant = ville de l'hôpital/maternité
+`;
+    } else if (typeDemarche.includes("cni") || typeDemarche.includes("carte") || typeDemarche.includes("passeport")) {
+      specificRules = `
+## RÈGLES SPÉCIFIQUES CNI/PASSEPORT
 
-**FORMAT DE RÉPONSE (JSON COMPACT sur UNE SEULE LIGNE) :**
+Champs obligatoires CNI/Passeport :
+- nom, prenom, email, telephone, dateNaissance, lieuNaissance
+- adresseComplete, ville, codePostal
+- numeroSecu (15 chiffres), taille (cm), couleurYeux
+- photo (format ANTS), timbreFiscal (86€ pour passeport)
 
-{
-  "valid": true/false,
-  "errors": [
-    {
-      "field": "nom_du_champ",
-      "message": "Description claire de l'erreur avec règle violée",
-      "severity": "critical|warning"
+Règles métier ANTS :
+- Photo < 6 mois (conformité ANTS)
+- Taille entre 50 et 250 cm
+- Numéro sécu : 15 chiffres avec structure valide (sexe+année+mois+dept+commune+ordre+clé)
+- Timbre fiscal obligatoire pour passeport
+`;
+    } else if (typeDemarche.includes("rsa") || typeDemarche.includes("revenu") || typeDemarche.includes("aide")) {
+      specificRules = `
+## RÈGLES SPÉCIFIQUES RSA
+
+Champs obligatoires RSA :
+- nom, prenom, email, telephone, dateNaissance
+- adresseComplete, ville, codePostal
+- situation (célibataire/marié/pacsé/divorcé/veuf)
+- revenus, charges, numeroSecu, numeroAllocataire, rib
+
+Règles métier RSA :
+- Revenus <= 607€/mois (montant forfaitaire RSA 2025)
+- Revenus >= 0 (pas de revenus négatifs)
+- Age >= 25 ans (condition RSA, sauf exceptions)
+- RIB : IBAN français (FR + 25 chiffres) ou classique (23 chiffres)
+- Numéro allocataire CAF : 7 chiffres
+`;
+    } else {
+      specificRules = `
+## RÈGLES GÉNÉRALES
+
+Champs obligatoires minimum :
+- nom, prenom, email, telephone
+- adresseComplete, ville, codePostal
+
+Validation de base uniquement (formats).
+`;
     }
-  ],
-  "recommendations": [
-    "Conseil pratique précis avec action à faire"
-  ],
-  "confidence": 0.95
+
+    return `Tu es un ValidatorAgent expert en validation de données administratives françaises.
+
+${baseValidation}
+${specificRules}
+
+## COMPLÉTUDE
+- Les champs obligatoires ne doivent PAS être vides, null ou undefined
+- Vérifier la présence de TOUS les champs listés ci-dessus
+
+## SÉVÉRITÉ
+- "critical" : bloque la soumission (format invalide, champ manquant, règle métier violée)
+- "warning" : valeur inhabituelle mais acceptée (ex: revenus élevés pour APL)
+
+---
+
+Données à valider (${typeDemarche}) :
+\`\`\`json
+${JSON.stringify(mappedData, null, 2)}
+\`\`\`
+
+Analyse et retourne UNIQUEMENT un JSON :
+{
+  "valid": boolean,
+  "errors": [{"field": "xxx", "message": "...", "severity": "critical|warning"}],
+  "recommendations": ["conseil 1", "conseil 2"],
+  "confidence": 0.0-1.0
 }
 
-**RÈGLES SEVERITY :**
-- "critical" : Bloque soumission (format invalide, règle métier violée, champ requis manquant)
-- "warning" : N'empêche pas mais attention (montant inhabituel, risque refus)
+Exemples :
+❌ CRITICAL - Email sans @ : {"field": "email", "message": "Format email invalide", "severity": "critical"}
+⚠️ WARNING - Revenus élevés : {"field": "revenus", "message": "Revenus élevés, APL réduit", "severity": "warning"}
+✅ VALID - Tout OK : {"valid": true, "errors": [], "recommendations": ["Données complètes"], "confidence": 1.0}
 
-**EXEMPLES CONCRETS :**
-
-❌ CRITICAL - Format invalide :
-Email "jean.dupontgmail.com" → {"field": "email", "message": "Format email invalide : @ manquant", "severity": "critical"}
-
-❌ CRITICAL - Règle métier violée :
-Revenus 800€, Loyer 900€ pour APL → {"field": "loyer", "message": "Loyer trop élevé (900€) par rapport aux revenus (800€). Ratio maximum : 33% des revenus", "severity": "critical"}
-
-⚠️ WARNING - Valeur inhabituelle :
-Revenus 4500€ pour APL → {"field": "revenus", "message": "Revenus élevés (4500€/mois). Montant APL réduit selon barème CAF", "severity": "warning"}
-
-✅ VALID - Tout OK :
-{"valid": true, "errors": [], "recommendations": ["Données complètes et conformes"], "confidence": 1.0}
-
-Analyse les données et retourne UNIQUEMENT le JSON (pas de texte avant/après).`;
+UNIQUEMENT le JSON (pas de texte avant/après).`;
   }
 
   /**
