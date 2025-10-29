@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { User, Process, ActivityLog, ChatMessage } from '../types';
 
 interface AppState {
@@ -22,6 +23,10 @@ interface AppState {
   setChatMessages: (messages: ChatMessage[]) => void;
   clearChatMessages: () => void;
   
+  // Session ID (pour persistance)
+  sessionId: string | null;
+  setSessionId: (id: string | null) => void;
+  
   // UI State
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
@@ -30,35 +35,53 @@ interface AppState {
   setAgentThinking: (thinking: boolean) => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
-  // User
-  user: null,
-  setUser: (user) => set({ user }),
-  
-  // Current Process
-  currentProcess: null,
-  setCurrentProcess: (process) => set({ currentProcess: process }),
-  
-  // Activity Logs
-  activityLogs: [],
-  addActivityLog: (log) => set((state) => ({
-    activityLogs: [...state.activityLogs, log]
-  })),
-  setActivityLogs: (logs) => set({ activityLogs: logs }),
-  clearActivityLogs: () => set({ activityLogs: [] }),
-  
-  // Chat Messages
-  chatMessages: [],
-  addChatMessage: (message) => set((state) => ({
-    chatMessages: [...state.chatMessages, message]
-  })),
-  setChatMessages: (messages: ChatMessage[]) => set({ chatMessages: messages }),
-  clearChatMessages: () => set({ chatMessages: [] }),
-  
-  // UI State
-  isSidebarOpen: true,
-  toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
-  
-  isAgentThinking: false,
-  setAgentThinking: (thinking) => set({ isAgentThinking: thinking }),
-}));
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+      // User
+      user: null,
+      setUser: (user) => set({ user }),
+      
+      // Current Process
+      currentProcess: null,
+      setCurrentProcess: (process) => set({ currentProcess: process }),
+      
+      // Activity Logs
+      activityLogs: [],
+      addActivityLog: (log) => set((state) => ({
+        activityLogs: [...state.activityLogs, log]
+      })),
+      setActivityLogs: (logs) => set({ activityLogs: logs }),
+      clearActivityLogs: () => set({ activityLogs: [] }),
+      
+      // Chat Messages
+      chatMessages: [],
+      addChatMessage: (message) => set((state) => ({
+        chatMessages: [...state.chatMessages, message]
+      })),
+      setChatMessages: (messages: ChatMessage[]) => set({ chatMessages: messages }),
+      clearChatMessages: () => set({ chatMessages: [] }),
+      
+      // Session ID
+      sessionId: null,
+      setSessionId: (id) => set({ sessionId: id }),
+      
+      // UI State
+      isSidebarOpen: true,
+      toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+      
+      isAgentThinking: false,
+      setAgentThinking: (thinking) => set({ isAgentThinking: thinking }),
+    }),
+    {
+      name: 'simplifia-storage',
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        currentProcess: state.currentProcess,
+        activityLogs: state.activityLogs,
+        chatMessages: state.chatMessages,
+        sessionId: state.sessionId,
+      }),
+    }
+  )
+);

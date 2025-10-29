@@ -107,7 +107,29 @@ export const MessageBubble = ({ message, isThinking }: MessageBubbleProps) => {
                     opacity: 0.7,
                   }}
                 >
-                  {message.timestamp.toLocaleTimeString()}
+                  {(() => {
+                    try {
+                      const ts = message.timestamp as any;
+                      // Timestamp peut être: Date, string ISO, Firestore Timestamp, ou objet sérialisé
+                      if (ts instanceof Date) {
+                        return ts.toLocaleTimeString();
+                      }
+                      if (typeof ts === 'string') {
+                        return new Date(ts).toLocaleTimeString();
+                      }
+                      if (ts?.seconds) {
+                        // Firestore Timestamp sérialisé {seconds, nanoseconds}
+                        return new Date(ts.seconds * 1000).toLocaleTimeString();
+                      }
+                      if (ts?.toDate) {
+                        // Firestore Timestamp avec méthode toDate
+                        return ts.toDate().toLocaleTimeString();
+                      }
+                      return '';
+                    } catch {
+                      return '';
+                    }
+                  })()}
                 </Typography>
               )}
             </>

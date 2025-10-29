@@ -23,7 +23,7 @@ export interface StoredSession {
  * - Nettoie automatiquement les anciennes sessions (> 30 jours)
  */
 export const useSessionManager = (userId?: string) => {
-  const { clearChatMessages } = useAppStore();
+  const { clearChatMessages, sessionId: storedSessionId, setSessionId: setStoredSessionId } = useAppStore();
   const [currentSessionId, setCurrentSessionId] = useState<string>('');
   const [sessions, setSessions] = useState<StoredSession[]>([]);
 
@@ -107,10 +107,11 @@ export const useSessionManager = (userId?: string) => {
     // Vider le chat actuel
     clearChatMessages();
     setCurrentSessionId(newSessionId);
+    setStoredSessionId(newSessionId); // Persister dans Zustand
 
     console.log('[SessionManager] New session created:', newSessionId);
     return newSessionId;
-  }, [generateSessionId, userId, loadSessions, saveSessions, clearChatMessages]);
+  }, [generateSessionId, userId, loadSessions, saveSessions, clearChatMessages, setStoredSessionId]);
 
   /**
    * Met à jour une session existante (titre, dernier message)
@@ -135,10 +136,11 @@ export const useSessionManager = (userId?: string) => {
    */
   const loadSession = useCallback((sessionId: string) => {
     setCurrentSessionId(sessionId);
+    setStoredSessionId(sessionId); // Persister dans Zustand
     clearChatMessages(); // Vider le chat actuel avant de charger
     console.log('[SessionManager] Loading session:', sessionId);
     // Note: subscribeToMessages se rechargera automatiquement avec le nouveau sessionId
-  }, [clearChatMessages]);
+  }, [clearChatMessages, setStoredSessionId]);
 
   /**
    * Supprime une session
@@ -188,31 +190,43 @@ export const useSessionManager = (userId?: string) => {
     // ⚠️ IMPORTANT : Ne s'exécute que si userId est défini
     if (!userId) {
       console.log('[SessionManager] ⏳ Waiting for userId...');
+      setCurrentSessionId(''); // Reset
       return;
     }
 
     const existingSessions = loadSessions();
     setSessions(existingSessions);
 
+    // 🔥 RESTAURER depuis Zustand si disponible
+    if (storedSessionId) {
+      const storedSession = existingSessions.find(s => s.id === storedSessionId);
+      if (storedSession && storedSession.userId === userId) {
+        console.log('[SessionManager] ✅ Restoring session from store:', storedSessionId);
+        setCurrentSessionId(storedSessionId);
+        return;
+      } else {
+        console.log('[SessionManager] ⚠️ Stored session invalid or different user');
+      }
+    }
+
     // Si aucune session active, créer une nouvelle
     if (!currentSessionId) {
-      // 🔥 FIX TEMPORAIRE : Toujours créer une NOUVELLE session (pour debug)
-      // TODO: Restaurer la logique de chargement d'ancienne session plus tard
-      console.log('[SessionManager] Creating NEW session (ignoring existing sessions for now)');
+      console.log('[SessionManager] Creating NEW session');
       
       const newId = generateSessionId();
       const now = new Date().toISOString();
       const newSession: StoredSession = {
         id: newId,
-        userId: userId || 'demo',
+        userId: userId,
         title: 'Nouvelle conversation',
         createdAt: now,
         lastMessageAt: now,
         messageCount: 0,
       };
-      saveSessions([newSession]);
-      setSessions([newSession]);
+      saveSessions([newSession, ...existingSessions]);
+      setSessions([newSession, ...existingSessions]);
       setCurrentSessionId(newId);
+      setStoredSessionId(newId); // Persister
       
       console.log('[SessionManager] ✅ New session created:', newId);
     }

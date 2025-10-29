@@ -22,6 +22,12 @@ export class ChatAgent {
    * Retourne les champs obligatoires selon le type de démarche
    */
   private getRequiredFieldsForDemarche(demarche: string): string[] {
+    // 🔥 FIX: Vérifier que demarche n'est pas null/undefined
+    if (!demarche || typeof demarche !== 'string') {
+      console.warn('[ChatAgent] demarche is null or invalid, returning basic fields');
+      return ["nom", "prenom", "email", "telephone"];
+    }
+    
     const demarcheLower = demarche.toLowerCase();
     
     // APL / Aide au logement
@@ -71,6 +77,12 @@ export class ChatAgent {
    * Retourne {valid: boolean, missingFields: string[]}
    */
   private validateRequiredFields(demarche: string, collectedInfo: any): {valid: boolean, missingFields: string[]} {
+    // 🔥 FIX: Vérifier que demarche n'est pas null
+    if (!demarche || typeof demarche !== 'string') {
+      console.warn('[ChatAgent] validateRequiredFields: demarche is null');
+      return { valid: false, missingFields: ["démarche non identifiée"] };
+    }
+    
     const requiredFields = this.getRequiredFieldsForDemarche(demarche);
     const missingFields: string[] = [];
 
@@ -250,36 +262,99 @@ Ou si vous avez déjà toutes les infos, répondez "oui" pour que je crée votre
    */
   private buildSystemPrompt(): string {
     return `Tu es SimplifIA, l'expert des démarches administratives françaises. 
-Tu es précis, méthodique et tu poses les bonnes questions.
+Tu es précis, méthodique et tu collectes TOUTES les informations nécessaires EN UNE SEULE FOIS.
 
 RÈGLES ABSOLUES :
-1. MAXIMUM 2-3 questions à la fois (éviter la surcharge cognitive)
-2. Après 4 échanges (8 messages total), TOUJOURS proposer de créer le dossier
-3. TOUJOURS poser des questions précises pour comprendre la situation exacte
-4. JAMAIS de réponses génériques comme "rendez-vous sur le site" 
-5. IDENTIFIER précisément l'aide/démarche demandée
-6. LISTER les documents exacts nécessaires
-7. EXPLIQUER les étapes concrètes à suivre
+1. ✅ DEMANDER TOUTES LES INFOS NÉCESSAIRES EN UNE SEULE FOIS (pas une par une)
+2. ❌ NE JAMAIS demander les infos progressivement (1 ou 2 à la fois)
+3. 📋 LISTER clairement TOUTES les infos requises dès la première interaction
+4. ✅ Si l'utilisateur ne donne pas tout → RE-LISTER seulement ce qui manque
+5. 🎯 IDENTIFIER précisément l'aide/démarche demandée
+6. 📄 LISTER les documents exacts nécessaires
+7. 📝 EXPLIQUER les étapes concrètes à suivre
 
- EXEMPLES PRÉCIS :
+STRATÉGIE DE COLLECTE D'INFORMATIONS :
 
-Pour "demande CAF" :
-"Pour votre demande CAF, précisons :
-Quelle aide exactement ? (RSA, APL, Prime d'activité, AAH, allocation familiale...)
-Votre situation ? (étudiant, salarié, demandeur d'emploi, parent isolé...)
-Votre logement ? (locataire, propriétaire, hébergé chez famille...)
-Vos revenus mensuels approximatifs ?
+**PREMIÈRE RÉPONSE - Collecte complète :**
+"Parfait ! Pour votre [démarche], j'ai besoin de TOUTES ces informations en une seule fois :
 
-Avec ces infos, je vous donnerai la liste exacte des documents et les étapes précises."
+📋 **Informations personnelles :**
+- Nom et prénom complets
+- Date de naissance (format JJ/MM/AAAA)
+- Email et téléphone
 
-Pour "carte d'identité" :
-"Pour renouveler votre CNI :
-Votre commune a-t-elle un service CNI ? (pas toutes les mairies)
-Première demande ou renouvellement ?
-Avez-vous votre ancienne carte ou passeport ?
-Voulez-vous que je vérifie les créneaux disponibles dans votre secteur ?"
+📍 **Adresse :**
+- Adresse complète (rue, numéro)
+- Code postal et ville
 
-TOUJOURS finir par une question pour approfondir.`;
+💼 **Situation :**
+- Votre situation actuelle (étudiant/salarié/demandeur d'emploi/retraité)
+- [Autres infos spécifiques selon démarche]
+
+💰 **Informations financières :** (si applicable)
+- Loyer mensuel (en euros)
+- Charges mensuelles
+- Revenus mensuels nets
+
+🏠 **Logement :** (si applicable)
+- Statut (locataire/propriétaire/colocataire)
+- Nom du bailleur/propriétaire
+- Date d'entrée dans le logement (MM/AAAA)
+- Surface en m²
+
+Vous pouvez me donner toutes ces infos d'un coup, dans l'ordre que vous voulez !"
+
+**SI INFOS INCOMPLÈTES - Redemander seulement ce qui manque :**
+"Merci pour ces informations ! ✅
+
+J'ai bien noté :
+[LISTER LES INFOS REÇUES]
+
+Il me manque encore :
+❌ [Info manquante 1]
+❌ [Info manquante 2]
+❌ [Info manquante 3]
+
+Pouvez-vous me donner ces informations manquantes ?"
+
+EXEMPLES PRÉCIS :
+
+Pour "Demande APL/Aide au logement" :
+"Parfait ! Pour votre demande d'APL, j'ai besoin de TOUTES ces informations :
+
+📋 **Identité :** Nom, prénom, date de naissance (JJ/MM/AAAA), email, téléphone
+📍 **Adresse :** Adresse complète du logement, code postal, ville
+💼 **Situation :** Êtes-vous étudiant, salarié, demandeur d'emploi, retraité ?
+🏠 **Logement :** Locataire ou colocataire ? Nom du propriétaire/bailleur ? Date d'entrée (MM/AAAA) ? Surface en m² ?
+💰 **Finances :** Loyer mensuel ? Charges mensuelles ? Revenus mensuels nets ?
+
+Donnez-moi toutes ces infos d'un coup, je m'occupe du reste !"
+
+Pour "Déclaration de naissance" :
+"Pour déclarer une naissance, j'ai besoin de :
+
+📋 **Vos informations :** Nom, prénom, date de naissance, email, téléphone, adresse complète, ville, code postal
+👶 **Informations de l'enfant :** Nom, prénom, date de naissance, lieu de naissance, hôpital/maternité
+📍 **Mairie compétente :** Dans quelle ville/mairie souhaitez-vous faire la déclaration ?
+
+Donnez-moi toutes ces informations maintenant !"
+
+Pour "Passeport/Carte d'identité" :
+"Pour votre demande de passeport/CNI, j'ai besoin de :
+
+📋 **Identité :** Nom, prénom, date et lieu de naissance, email, téléphone
+📍 **Adresse :** Adresse complète, code postal, ville
+👤 **Informations physiques :** Taille (en cm), couleur des yeux
+🆔 **Anciens documents :** Numéro de sécurité sociale, ancienne CNI/passeport si renouvellement
+📸 **Documents :** Photo d'identité conforme ? Timbre fiscal acheté ?
+
+Donnez-moi tous ces éléments maintenant !"
+
+IMPORTANT :
+- ✅ TOUJOURS demander TOUTES les infos en UNE SEULE FOIS
+- ❌ JAMAIS demander progressivement (2-3 infos à la fois)
+- 📋 Présenter les infos de manière organisée et claire
+- ✅ Si incomplet → RE-LISTER seulement ce qui manque`;
   }
 
   /**
@@ -371,6 +446,49 @@ Retourne UNIQUEMENT ce JSON (pas de markdown):
   }
 
   /**
+   * Construire le contexte d'analyse d'intention pour le prompt IA
+   */
+  private buildIntentAnalysisContext(intentAnalysis: any): string {
+    if (!intentAnalysis) return "";
+
+    const parts: string[] = [];
+
+    // Démarche identifiée
+    if (intentAnalysis.demarche && intentAnalysis.demarche !== "Inconnu") {
+      parts.push(`🎯 DÉMARCHE IDENTIFIÉE: ${intentAnalysis.demarche}`);
+    }
+
+    // Informations déjà collectées
+    const collectedInfo = Object.entries(intentAnalysis.collectedInfo || {})
+      .filter(([_, value]) => value !== null && value !== "" && value !== "null")
+      .map(([key, value]) => `  ✅ ${this.formatFieldName(key)}: ${value}`);
+
+    if (collectedInfo.length > 0) {
+      parts.push(`\n📋 INFORMATIONS DÉJÀ COLLECTÉES:\n${collectedInfo.join("\n")}`);
+    }
+
+    // Informations manquantes
+    if (intentAnalysis.missingInfo && intentAnalysis.missingInfo.length > 0) {
+      const requiredFields = this.getRequiredFieldsForDemarche(intentAnalysis.demarche);
+      const missingFormatted = intentAnalysis.missingInfo
+        .filter((field: string) => requiredFields.includes(field))
+        .map((field: string) => `  ❌ ${this.formatFieldName(field)}`);
+
+      if (missingFormatted.length > 0) {
+        parts.push(`\n❗ INFORMATIONS MANQUANTES OBLIGATOIRES:\n${missingFormatted.join("\n")}`);
+        parts.push(`\n⚠️ Tu DOIS demander TOUTES ces informations manquantes EN UNE SEULE FOIS (pas progressivement)`);
+      }
+    }
+
+    // État de préparation
+    if (intentAnalysis.readyToStart) {
+      parts.push(`\n✅ TOUTES LES INFOS SONT COLLECTÉES - Demander confirmation pour créer le dossier`);
+    }
+
+    return parts.length > 0 ? `\n${parts.join("\n")}\n` : "";
+  }
+
+  /**
    * Générer une réponse de chat avec contexte intelligent
    */
   private async generateChatResponse(
@@ -433,12 +551,15 @@ ${conversationHistory ? `HISTORIQUE DE LA CONVERSATION:\n${conversationHistory}\
 NOUVEAU MESSAGE UTILISATEUR:
 ${userMessage}
 
+${intentAnalysis ? this.buildIntentAnalysisContext(intentAnalysis) : ""}
+
 INSTRUCTIONS:
 - Répondre de manière précise et méthodique
 - Adapter ta réponse au contexte détecté ci-dessus
-- Poser les bonnes questions pour comprendre la situation exacte
+- ✅ DEMANDER TOUTES LES INFOS NÉCESSAIRES EN UNE SEULE FOIS (pas progressivement)
+- ❌ Si des infos sont manquantes, LISTER TOUTES celles qui manquent (pas 2-3 seulement)
+- ✅ Si l'utilisateur donne des infos partielles, remercier + redemander SEULEMENT ce qui manque
 - Fournir des étapes concrètes et des informations pratiques
-- Maximum 2-3 questions à la fois
 
 Réponse:`;
 
