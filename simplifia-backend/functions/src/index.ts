@@ -45,10 +45,6 @@ export const onProcessCreated = onDocumentCreated(
     if (!processData || !snap) return;
 
     try {
-      console.log(`Nouveau processus créé : ${processId}`);
-      console.log(`Utilisateur : ${processData.userId}`);
-      console.log(`Titre : ${processData.title}`);
-
       // Validation des données requises
       if (!processData.sessionId || !processData.userId) {
         console.error(
@@ -75,32 +71,30 @@ export const onProcessCreated = onDocumentCreated(
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      console.log(`Processus ${processId} initialisé et en cours`);
 
       // ============================================
       // WORKFLOW AUTOMATIQUE - Lancer l'orchestrator
       // ============================================
-      console.log(`🚀 Démarrage du workflow automatique pour ${processId}`);
 
       // Lancer le workflow de manière asynchrone (non-bloquant)
       const orchestrator = ProcessOrchestrator.getInstance();
       orchestrator.executeWorkflow(processId)
-        .then((metrics) => {
-          console.log(`✅ Workflow ${processId} complété en ${metrics.totalDuration}ms`);
+        .then(() => {
+          // Workflow terminé
         })
         .catch((error) => {
-          console.error(`❌ Erreur workflow ${processId}:`, error);
+          console.error(`Erreur workflow ${processId}:`, error);
         });
     } catch (error) {
       console.error(
-        `❌ Erreur initialisation processus ${processId}:`,
+        `Erreur initialisation processus ${processId}:`,
         error
       );
 
       await db.collection("activity_logs").add({
         processId: processId,
         type: "error",
-        message: "❌ Erreur d'initialisation",
+        message: "Erreur d'initialisation",
         details: error instanceof Error ? error.message : "Erreur inconnue",
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -124,8 +118,6 @@ export const onProcessUpdated = onDocumentUpdated(
     try {
       // Détecter si le processus est complété
       if (before.status !== "completed" && after.status === "completed") {
-        console.log(`Processus ${processId} complété !`);
-
         // Ajouter un message de félicitations
         await db.collection("messages").add({
           sessionId: after.sessionId,
@@ -146,13 +138,6 @@ export const onProcessUpdated = onDocumentUpdated(
           details: "Toutes les étapes ont été finalisées",
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
         });
-      }
-
-      // Détecter changement d'étape
-      if (before.currentStepIndex !== after.currentStepIndex) {
-        console.log(
-          `📊 Processus ${processId} - Étape ${before.currentStepIndex} → ${after.currentStepIndex}`,
-        );
       }
     } catch (error) {
       console.error(
@@ -182,37 +167,20 @@ export const onChatMessageAdded = onDocumentCreated(
       if (messageData.role !== "user") {
         return;
       }
-
-      console.log(
-        `Nouveau message user dans session ${messageData.sessionId}`,
-      );
-      console.log(`Contenu : ${messageData.content}`);
-      console.log(`userId : ${messageData.userId}`);
-      
       // ============================================
       // INTÉGRATION AGENT CHAT IA
       // ============================================
-
-      console.log("Message reçu, lancement de l'agent IA:", {
-        sessionId: messageData.sessionId,
-        content: messageData.content,
-        userId: messageData.userId,
-      });
 
       // Utiliser l'instance unique de l'agent chat (Singleton)
       const chatAgent = ChatAgent.getInstance();
       await chatAgent.processUserMessage(
         messageData.sessionId,
         messageData.content,
-        messageData.userId  // ✅ PASSER LE userId ICI !
-      );
-
-      console.log(
-        `Réponse envoyée pour la session ${messageData.sessionId}`,
+        messageData.userId // ✅ PASSER LE userId ICI !
       );
     } catch (error) {
       console.error(
-        `❌ Erreur lors du traitement du message dans session ${messageData.sessionId}:`,
+        `Erreur lors du traitement du message dans session ${messageData.sessionId}:`,
         error,
       );
     }

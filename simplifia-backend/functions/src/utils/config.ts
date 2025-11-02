@@ -28,5 +28,4 @@ export const config = {
  */
 export const validateConfig = () => {
   // Configuration statique - pas de validation nécessaire
-  console.log("Configuration SimplifIA chargée:", config.projectId);
 };

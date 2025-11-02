@@ -44,12 +44,7 @@ const ManualTakeoverButton: React.FC<ManualTakeoverButtonProps> = ({
       onTakeover();
     }
 
-    // Log de la reprise manuelle
-    console.log('[ManualTakeover] User taking manual control', {
-      processId,
-      reason,
-      timestamp: new Date().toISOString()
-    });
+    // Log de la reprise manuelle - processId: {processId}, reason: {reason}
 
     // Ouvrir l'URL d'administration dans un nouvel onglet
     const url = processId 

@@ -88,7 +88,7 @@ export const HomePage = () => {
                   backgroundColor: 'grey.100',
                 },
               }}
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/login')}
             >
               Démarrer maintenant
             </Button>

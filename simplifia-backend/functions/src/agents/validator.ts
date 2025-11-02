@@ -50,9 +50,8 @@ export class ValidatorAgent {
         agent: "ValidatorAgent",
         metadata: metadata || {},
       });
-      console.log(`📝 [${type.toUpperCase()}] ${message}`);
     } catch (error) {
-      console.error("❌ Erreur logging action détaillée:", error);
+      console.error("Erreur logging action détaillée:", error);
       // Ne pas bloquer le flux si le logging échoue
     }
   }
@@ -82,12 +81,10 @@ export class ValidatorAgent {
     const startTime = Date.now();
 
     try {
-      console.log(`✅ Validation démarrée pour processus ${processId}`);
-
       // LOG DÉTAILLÉ: Début de la validation
       await this.logDetailedAction(
         processId,
-        `🔍 Début de la validation des données`,
+        "🔍 Début de la validation des données",
         "info"
       );
 
@@ -96,7 +93,6 @@ export class ValidatorAgent {
       const processData = processDoc.data();
       const typeDemarche = processData?.type_demarche?.toLowerCase() || "generale";
 
-      console.log(`📋 Type de démarche détecté: ${typeDemarche}`);
 
       // LOG DÉTAILLÉ: Type de démarche détecté
       await this.logDetailedAction(
@@ -121,7 +117,7 @@ export class ValidatorAgent {
       // LOG DÉTAILLÉ: Utilisation IA pour validation
       await this.logDetailedAction(
         processId,
-        `🤖 Analyse intelligente avec IA`,
+        "🤖 Analyse intelligente avec IA",
         "info"
       );
 
@@ -138,7 +134,7 @@ export class ValidatorAgent {
       if (validation.valid) {
         await this.logDetailedAction(
           processId,
-          `✅ Validation réussie - Toutes les données sont conformes`,
+          "✅ Validation réussie - Toutes les données sont conformes",
           "success",
           { duration: `${duration}ms`, confidence: validation.confidence }
         );
@@ -150,10 +146,10 @@ export class ValidatorAgent {
           processId,
           `❌ Validation échouée: ${criticalErrors.length} erreur(s) critique(s), ${warnings.length} avertissement(s)`,
           "error",
-          { 
+          {
             criticalCount: criticalErrors.length,
             warningCount: warnings.length,
-            duration: `${duration}ms`
+            duration: `${duration}ms`,
           }
         );
 
@@ -198,11 +194,10 @@ export class ValidatorAgent {
       // Logger le résultat dans Firestore (log global)
       await this.logValidation(processId, validation, duration);
 
-      console.log(`✅ Validation terminée pour ${processId} (${typeDemarche}) - Valid: ${validation.valid} (${duration}ms)`);
 
       return validation;
     } catch (error) {
-      console.error(`❌ Erreur validation pour ${processId}:`, error);
+      console.error(`Erreur validation pour ${processId}:`, error);
 
       // LOG DÉTAILLÉ: Erreur système
       await this.logDetailedAction(
@@ -410,10 +405,8 @@ UNIQUEMENT le JSON (pas de texte avant/après).`;
       };
 
       await this.firestore.collection("activity_logs").add(logData);
-
-      console.log(`📝 Log validation créé pour processus ${processId}`);
     } catch (error) {
-      console.error("❌ Erreur lors du logging validation:", error);
+      console.error("Erreur lors du logging validation:", error);
     }
   }
 
@@ -434,7 +427,7 @@ UNIQUEMENT le JSON (pas de texte avant/après).`;
         details: String(error),
       });
     } catch (logError) {
-      console.error("❌ Erreur lors du logging d'erreur:", logError);
+      console.error("Erreur lors du logging d'erreur:", logError);
     }
   }
 
@@ -463,7 +456,7 @@ UNIQUEMENT le JSON (pas de texte avant/après).`;
 
       return validations;
     } catch (error) {
-      console.error("❌ Erreur récupération historique validation:", error);
+      console.error("Erreur récupération historique validation:", error);
       return [];
     }
   }

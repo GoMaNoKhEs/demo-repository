@@ -71,14 +71,7 @@ export const DashboardPage = () => {
   // ⚠️ CRITICAL : Le même sessionId DOIT être utilisé pour subscribe ET envoyer les messages
   const sessionId = currentSessionId;
   
-  // Debug logs pour diagnostiquer les problèmes de session
-  useEffect(() => {
-    console.log('[Dashboard] 🔑 Session ID changed:', { 
-      currentSessionId, 
-      sessionId,
-      userId: user?.uid,
-    });
-  }, [currentSessionId, sessionId, user?.uid]);
+  // Debug logs pour diagnostiquer les problèmes de session - Session tracking
 
   // États pour les nouveaux composants Phase 3 DEV2
   const [criticalActionModalOpen, setCriticalActionModalOpen] = useState(false);

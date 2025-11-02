@@ -27,7 +27,7 @@ import { ValidatorAgent } from "../agents/validator";
 interface ProcessData {
   title: string;
   description: string;
-  userContext: any;
+  userContext: Record<string, unknown>;
   status: string;
   steps: ProcessStep[];
   createdAt: admin.firestore.Timestamp;
@@ -72,6 +72,9 @@ const colors = {
   magenta: "\x1b[35m",
 };
 
+/**
+ * Orchestrateur de processus - Coordonne l'exécution des agents
+ */
 export class ProcessOrchestrator {
   private static instance: ProcessOrchestrator;
   private db = admin.firestore();
@@ -91,10 +94,9 @@ export class ProcessOrchestrator {
   private processCache = new Map<string, ProcessData>();
   private cacheTTL = 30000; // 30 secondes
 
-  private constructor() {
-    console.log(`${colors.cyan}🎯 ProcessOrchestrator initialized${colors.reset}`);
-  }
-
+  /**
+   * Retourne l'instance unique de ProcessOrchestrator
+   */
   public static getInstance(): ProcessOrchestrator {
     if (!ProcessOrchestrator.instance) {
       ProcessOrchestrator.instance = new ProcessOrchestrator();
@@ -115,10 +117,6 @@ export class ProcessOrchestrator {
     };
 
     try {
-      console.log(`\n${colors.bright}${colors.magenta}╔════════════════════════════════════════════════════════╗${colors.reset}`);
-      console.log(`${colors.bright}${colors.magenta}║   🎯 WORKFLOW ORCHESTRATOR - Process ${processId.substring(0, 8)}...   ║${colors.reset}`);
-      console.log(`${colors.bright}${colors.magenta}╚════════════════════════════════════════════════════════╝${colors.reset}\n`);
-
       // Vérifier circuit breaker
       if (this.circuitBreakerOpen) {
         const now = Date.now();
@@ -128,7 +126,6 @@ export class ProcessOrchestrator {
         // Reset circuit breaker
         this.circuitBreakerOpen = false;
         this.consecutiveFailures = 0;
-        console.log(`${colors.green}✅ Circuit breaker reset${colors.reset}`);
       }
 
       // Charger données process (avec cache)
@@ -138,22 +135,17 @@ export class ProcessOrchestrator {
         throw new Error(`Process ${processId} not found`);
       }
 
-      console.log(`${colors.cyan}📋 Process: ${processData.title}${colors.reset}`);
-      console.log(`${colors.cyan}📝 Description: ${processData.description}${colors.reset}`);
-      console.log(`${colors.cyan}👤 User: ${processData.userContext?.nom || "N/A"} ${processData.userContext?.prenom || ""}${colors.reset}\n`);
 
       // ÉTAPE 0: Analyse (déjà complétée par ChatAgent)
-      await this.updateStep(processId, 0, "completed", metrics);
-      console.log(`${colors.green}✅ Step 0: Analyse (already completed by ChatAgent)${colors.reset}\n`);
+      await this.updateStep(processId, 0, "completed");
 
       // ÉTAPE 1: Navigator - Mapping + Connexion au site
-      const step1Metrics = await this.executeStepWithRetry(
+      await this.executeStepWithRetry(
         processId,
         1,
         "Navigator - Mapping + Soumission",
         async () => {
           const siteName = this.determineSite(processData.title);
-          console.log(`${colors.blue}🔄 Navigator: Mapping données pour ${siteName}${colors.reset}`);
 
           const navigator = NavigatorAgent.getInstance();
 
@@ -161,20 +153,18 @@ export class ProcessOrchestrator {
           const mappingResult = await navigator.mapUserDataToForm(
             processId,
             processData.userContext,
-            siteName as any
+            siteName
           );
 
-          console.log(`${colors.green}✅ Mapping terminé (confidence: ${mappingResult.confidence})${colors.reset}`);
-
+          // Vérifier les champs manquants (log uniquement)
           if (mappingResult.missingFields.length > 0) {
-            console.log(`${colors.yellow}⚠️  Champs manquants: ${mappingResult.missingFields.join(", ")}${colors.reset}`);
+            // Missing fields logged by navigator
           }
 
           // Étape 1B: Soumettre les données mappées
-          console.log(`${colors.blue}🌐 Navigator: Soumission au site ${siteName}${colors.reset}`);
           const navResponse = await navigator.navigateAndSubmit(
             processId,
-            siteName as any,
+            siteName,
             mappingResult.mappedData // Utiliser les données mappées
           );
 
@@ -191,17 +181,15 @@ export class ProcessOrchestrator {
         metrics
       );
 
-      console.log(`${colors.green}✅ Step 1 completed in ${step1Metrics.duration}ms (${step1Metrics.retries} retries)${colors.reset}\n`);
 
       // ÉTAPE 2: Validator - Validation (anciennement Step 3)
-      const step2Metrics = await this.executeStepWithRetry(
+      await this.executeStepWithRetry(
         processId,
         2,
         "Validator - Validation",
         async () => {
           const validator = ValidatorAgent.getInstance();
 
-          console.log(`${colors.blue}🔍 Validating data...${colors.reset}`);
           const validation = await validator.validateBeforeSubmission(
             processId,
             processData.userContext
@@ -211,14 +199,10 @@ export class ProcessOrchestrator {
           const criticalErrors = validation.errors.filter((err) => err.severity === "critical");
 
           if (!validation.valid && criticalErrors.length > 0) {
-            console.log(`${colors.red}❌ Validation failed: ${criticalErrors.length} critical errors${colors.reset}`);
-            validation.errors.forEach((err) => {
-              const severity = err.severity === "critical" ? colors.red : colors.yellow;
-              console.log(`   ${severity}▪ [${err.severity}] ${err.field}: ${err.message}${colors.reset}`);
-            });
+            // Log validation errors - could add console.error here for critical errors if needed
 
             // Marquer step 2 comme failed
-            await this.updateStep(processId, 2, "failed", metrics);
+            await this.updateStep(processId, 2, "failed");
 
             // Marquer processus comme failed
             await this.db.collection("processes").doc(processId).update({
@@ -230,28 +214,12 @@ export class ProcessOrchestrator {
             throw new Error(`Validation failed with ${criticalErrors.length} critical errors`);
           }
 
-          // Si seulement des warnings, accepter la validation
-          if (!validation.valid && criticalErrors.length === 0) {
-            console.log(`${colors.yellow}⚠️  Validation avec warnings seulement (acceptée)${colors.reset}`);
-            validation.errors.forEach((err) => {
-              console.log(`   ${colors.yellow}▪ [${err.severity}] ${err.field}: ${err.message}${colors.reset}`);
-            });
-          }
-
-          console.log(`${colors.green}✅ Validation passed with confidence ${validation.confidence}${colors.reset}`);
-          if (validation.recommendations.length > 0) {
-            console.log(`${colors.cyan}💡 Recommendations:${colors.reset}`);
-            validation.recommendations.forEach((rec) => {
-              console.log(`   ${colors.cyan}▪ ${rec}${colors.reset}`);
-            });
-          }
-
+          // Si seulement des warnings, accepter la validation (errors logged by validator)
           return validation;
         },
         metrics
       );
 
-      console.log(`${colors.green}✅ Step 2 completed in ${step2Metrics.duration}ms${colors.reset}\n`);
 
       // MARQUER TOUS LES STEPS RESTANTS COMME COMPLETED
       // Les steps 3, 4, etc. sont des étapes "virtuelles" (affichage UI uniquement)
@@ -260,13 +228,11 @@ export class ProcessOrchestrator {
       const finalProcessData = finalProcessDoc.data();
       const totalSteps = finalProcessData?.steps?.length || 0;
 
-      console.log(`${colors.cyan}📋 Finalisation des ${totalSteps} étapes...${colors.reset}`);
 
       // Marquer les steps 3, 4, etc. comme completed
       for (let i = 3; i < totalSteps; i++) {
-        await this.updateStep(processId, i, "completed", metrics);
-        console.log(`${colors.green}✅ Step ${i} marked as completed${colors.reset}`);
-        
+        await this.updateStep(processId, i, "completed");
+
         // Créer un activity log pour chaque step finalisé
         const stepName = finalProcessData?.steps?.[i]?.name || `Étape ${i + 1}`;
         await this.db.collection("activity_logs").add({
@@ -296,9 +262,6 @@ export class ProcessOrchestrator {
       this.consecutiveFailures = 0;
 
       // Log métriques finales
-      console.log(`\n${colors.bright}${colors.green}╔════════════════════════════════════════════════════════╗${colors.reset}`);
-      console.log(`${colors.bright}${colors.green}║   ✅ WORKFLOW COMPLETED SUCCESSFULLY                  ║${colors.reset}`);
-      console.log(`${colors.bright}${colors.green}╚════════════════════════════════════════════════════════╝${colors.reset}\n`);
 
       this.logMetrics(metrics);
 
@@ -307,7 +270,7 @@ export class ProcessOrchestrator {
 
       return metrics;
     } catch (error) {
-      console.error(`\n${colors.red}❌ Workflow failed for process ${processId}:${colors.reset}`, error);
+      console.error(`\n${colors.red}Workflow failed for process ${processId}:${colors.reset}`, error);
 
       metrics.endTime = Date.now();
       metrics.totalDuration = metrics.endTime - metrics.startTime;
@@ -318,7 +281,6 @@ export class ProcessOrchestrator {
       if (this.consecutiveFailures >= this.maxConsecutiveFailures) {
         this.circuitBreakerOpen = true;
         this.circuitBreakerResetTime = Date.now() + this.circuitBreakerTimeout;
-        console.log(`${colors.red}🚨 Circuit breaker opened after ${this.consecutiveFailures} consecutive failures${colors.reset}`);
       }
 
       // Mettre à jour Firestore
@@ -359,7 +321,7 @@ export class ProcessOrchestrator {
 
     metrics.steps.push(stepMetrics);
 
-    await this.updateStep(processId, stepIndex, "in-progress", metrics);
+    await this.updateStep(processId, stepIndex, "in-progress");
 
     let lastError: Error | undefined;
 
@@ -367,12 +329,10 @@ export class ProcessOrchestrator {
       try {
         if (attempt > 0) {
           const delay = this.baseRetryDelay * Math.pow(2, attempt - 1);
-          console.log(`${colors.yellow}⏳ Retry ${attempt}/${this.maxRetries} after ${delay}ms...${colors.reset}`);
           await this.sleep(delay);
           stepMetrics.retries++;
         }
 
-        console.log(`${colors.blue}▶ Step ${stepIndex}: ${stepName} (attempt ${attempt + 1})${colors.reset}`);
 
         const result = await stepFunction();
 
@@ -380,19 +340,19 @@ export class ProcessOrchestrator {
         stepMetrics.duration = stepMetrics.endTime - stepMetrics.startTime;
         stepMetrics.success = true;
 
-        await this.updateStep(processId, stepIndex, "completed", metrics);
+        await this.updateStep(processId, stepIndex, "completed");
 
         return { ...stepMetrics, result };
       } catch (error) {
         lastError = error as Error;
-        console.error(`${colors.red}❌ Step ${stepIndex} attempt ${attempt + 1} failed:${colors.reset}`, error);
+        console.error(`${colors.red}Step ${stepIndex} attempt ${attempt + 1} failed:${colors.reset}`, error);
 
         if (attempt === this.maxRetries) {
           stepMetrics.endTime = Date.now();
           stepMetrics.duration = stepMetrics.endTime - stepMetrics.startTime;
           stepMetrics.success = false;
 
-          await this.updateStep(processId, stepIndex, "failed", metrics);
+          await this.updateStep(processId, stepIndex, "failed");
           throw lastError;
         }
       }
@@ -409,8 +369,7 @@ export class ProcessOrchestrator {
   private async updateStep(
     processId: string,
     stepIndex: number,
-    status: "in-progress" | "completed" | "failed",
-    metrics: WorkflowMetrics
+    status: "in-progress" | "completed" | "failed"
   ): Promise<void> {
     // 1. Lire le process complet pour récupérer le tableau steps
     const processDoc = await this.db.collection("processes").doc(processId).get();
@@ -435,7 +394,16 @@ export class ProcessOrchestrator {
     // Le spread operator copie les propriétés undefined AVANT que delete ne s'exécute
     // Construction manuelle = contrôle total sur les propriétés incluses
     const sourceStep = steps[stepIndex];
-    const updatedStep: any = {
+    interface StepUpdate {
+      id: string;
+      name: string;
+      description: string;
+      order: number;
+      status: string;
+      startedAt?: admin.firestore.Timestamp;
+      completedAt?: admin.firestore.Timestamp;
+    }
+    const updatedStep: StepUpdate = {
       id: sourceStep.id,
       name: sourceStep.name,
       description: sourceStep.description,
@@ -459,7 +427,6 @@ export class ProcessOrchestrator {
     }
     // Si completedAt n'est pas défini, on ne l'ajoute simplement pas à l'objet
 
-    console.log(`📝 Writing step ${stepIndex}:`, JSON.stringify(updatedStep, null, 2));
 
     steps[stepIndex] = updatedStep;
 
@@ -469,8 +436,6 @@ export class ProcessOrchestrator {
       currentStepIndex: stepIndex,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-
-    console.log(`✅ Updated step ${stepIndex} to ${status} in process ${processId}, preserving ${steps.length} total steps`);
   }
 
   /**
@@ -480,7 +445,6 @@ export class ProcessOrchestrator {
     // Vérifier cache
     const cached = this.processCache.get(processId);
     if (cached) {
-      console.log(`${colors.cyan}📦 Using cached process data${colors.reset}`);
       return cached;
     }
 
@@ -503,26 +467,57 @@ export class ProcessOrchestrator {
   /**
    * Détermine le site administratif basé sur le titre du processus
    */
-  private determineSite(title: string): "CAF" | "ANTS" | "IMPOTS" | "SECU" | "POLE_EMPLOI" | "PREFECTURE" | "CPAM" {
+  private determineSite(
+    title: string
+  ): "CAF" | "ANTS" | "IMPOTS" | "SECU" | "POLE_EMPLOI" | "PREFECTURE" | "URSSAF" {
     const titleLower = title.toLowerCase();
 
-    if (titleLower.includes("apl") || titleLower.includes("rsa") || titleLower.includes("caf") || titleLower.includes("allocation")) {
+    if (
+      titleLower.includes("apl") ||
+      titleLower.includes("rsa") ||
+      titleLower.includes("caf") ||
+      titleLower.includes("allocation")
+    ) {
       return "CAF";
     }
-    if (titleLower.includes("passeport") || titleLower.includes("carte") || titleLower.includes("identité") || titleLower.includes("ants")) {
+    if (
+      titleLower.includes("passeport") ||
+      titleLower.includes("carte") ||
+      titleLower.includes("identité") ||
+      titleLower.includes("ants")
+    ) {
       return "ANTS";
     }
-    if (titleLower.includes("impôt") || titleLower.includes("impot") || titleLower.includes("déclaration") || titleLower.includes("taxe")) {
+    if (
+      titleLower.includes("impôt") ||
+      titleLower.includes("impot") ||
+      titleLower.includes("déclaration") ||
+      titleLower.includes("taxe")
+    ) {
       return "IMPOTS";
     }
-    if (titleLower.includes("emploi") || titleLower.includes("chômage") || titleLower.includes("chomage") || titleLower.includes("pole")) {
+    if (
+      titleLower.includes("emploi") ||
+      titleLower.includes("chômage") ||
+      titleLower.includes("chomage") ||
+      titleLower.includes("pole")
+    ) {
       return "POLE_EMPLOI";
     }
-    if (titleLower.includes("préfecture") || titleLower.includes("prefecture") || titleLower.includes("permis")) {
+    if (
+      titleLower.includes("préfecture") ||
+      titleLower.includes("prefecture") ||
+      titleLower.includes("permis")
+    ) {
       return "PREFECTURE";
     }
-    if (titleLower.includes("cpam") || titleLower.includes("sécu") || titleLower.includes("secu") || titleLower.includes("santé")) {
-      return "CPAM";
+    if (
+      titleLower.includes("cpam") ||
+      titleLower.includes("sécu") ||
+      titleLower.includes("secu") ||
+      titleLower.includes("santé")
+    ) {
+      return "SECU"; // CPAM → SECU pour compatibilité avec navigator
     }
 
     // Défaut : CAF (le plus commun)
@@ -533,22 +528,11 @@ export class ProcessOrchestrator {
    * Log les métriques de workflow
    */
   private logMetrics(metrics: WorkflowMetrics): void {
-    console.log(`\n${colors.bright}${colors.cyan}📊 WORKFLOW METRICS${colors.reset}`);
-    console.log(`${colors.cyan}${"═".repeat(60)}${colors.reset}`);
-    console.log(`${colors.cyan}Process ID: ${metrics.processId}${colors.reset}`);
-    console.log(`${colors.cyan}Status: ${metrics.status === "success" ? colors.green : colors.red}${metrics.status.toUpperCase()}${colors.reset}`);
-    console.log(`${colors.cyan}Total Duration: ${metrics.totalDuration}ms${colors.reset}`);
-    console.log(`${colors.cyan}Steps Completed: ${metrics.steps.filter((s) => s.success).length}/${metrics.steps.length}${colors.reset}\n`);
-
-    console.log(`${colors.cyan}Step Details:${colors.reset}`);
-    metrics.steps.forEach((step) => {
-      const statusIcon = step.success ? "✅" : "❌";
-      const statusColor = step.success ? colors.green : colors.red;
-      console.log(`  ${statusIcon} Step ${step.stepIndex}: ${step.stepName}`);
-      console.log(`     ${statusColor}Duration: ${step.duration}ms, Retries: ${step.retries}${colors.reset}`);
-    });
-
-    console.log(`${colors.cyan}${"═".repeat(60)}${colors.reset}\n`);
+    // Metrics are logged to Firestore via saveMetrics
+    // Additional console logging could be added here if needed
+    if (metrics.status === "failed") {
+      // Log failed metrics
+    }
   }
 
   /**
@@ -600,6 +584,5 @@ export class ProcessOrchestrator {
     this.circuitBreakerOpen = false;
     this.consecutiveFailures = 0;
     this.circuitBreakerResetTime = undefined;
-    console.log(`${colors.green}✅ Circuit breaker manually reset${colors.reset}`);
   }
 }

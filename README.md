@@ -1,123 +1,148 @@
-# SimplifIA - L'Agent d'Autonomie Administrative
+# SimplifIA - Assistant Intelligent pour Démarches Administratives
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Google Cloud](https://img.shields.io/badge/Google%20Cloud-4285F4?logo=google-cloud&logoColor=white)](https://cloud.google.com/)
-[![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black)](https://reactjs.org/)
-[![Firebase](https://img.shields.io/badge/Firebase-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
+## Vue d'ensemble
 
-## 🚀 Vue d'ensemble
+SimplifIA est une plateforme d'assistance administrative basée sur l'intelligence artificielle. Elle permet aux citoyens de réaliser leurs démarches administratives françaises de manière conversationnelle, guidée et automatisée.
 
-**SimplifIA** est un agent d'Intelligence Artificielle agentique conçu pour **mettre fin à la surcharge administrative** et à l'exclusion numérique en transformant le labyrinthe administratif en un service simple et conversationnel.
+Le système utilise Vertex AI de Google Cloud pour comprendre les besoins des utilisateurs et orchestrer des workflows complexes impliquant plusieurs organismes administratifs (CAF, Préfecture, services fiscaux, etc.).
 
-Notre solution passe de l'information statique à **l'action proactive et autonome**, en se concentrant sur une IA éthique et transparente.
+### Objectifs
 
-### 🎯 Public cible
-
-- **Personnes en difficulté cognitive** : Pour lesquelles la navigation en ligne est une barrière invisible
-- **Professionnels et individus pressés** : Qui cherchent à récupérer le temps perdu dans les démarches complexes
+- Simplifier l'accès aux services administratifs français
+- Réduire la fracture numérique par une interface conversationnelle
+- Automatiser les tâches répétitives et chronophages
+- Garantir la transparence et le contrôle utilisateur à chaque étape
 
 ---
 
-## ✨ Fonctionnalités Clés
+## Architecture
 
-### 1. 🧠 Orchestration Proactive Multi-Organismes
+### Vue d'ensemble technique
 
-L'agent utilise **Vertex AI** pour analyser la requête de l'utilisateur et décide immédiatement de la séquence optimale de 15 à 20 démarches à enclencher, en respectant l'ordre de priorité légale et les délais critiques.
+```
+Frontend (React + TypeScript + Vite)
+    |
+    v
+Firebase Hosting
+    |
+    v
+Cloud Firestore (Base de données temps réel)
+    |
+    v
+Cloud Functions (Node.js 22)
+    |
+    v
+Vertex AI (Analyse conversationnelle)
+```
 
-### 2. 🤖 RPA Conversationnel et Auto-Correction
+### Stack technologique
 
-L'agent exécute les actions en utilisant son **Outil d'Interaction Web** pour naviguer, remplir les formulaires et télécharger les pièces justificatives. En cas d'erreur, il décide lui-même de l'action corrective à mener.
+**Frontend**
+- React 19.1 avec TypeScript
+- Vite comme bundler
+- Material UI pour l'interface
+- Zustand pour la gestion d'état
+- Firebase SDK pour l'authentification et Firestore
 
-### 3. 📊 Tableau de Bord de Confiance
+**Backend**
+- Cloud Functions (2ème génération, Node.js 22)
+- Firestore pour le stockage des données
+- Vertex AI pour le traitement du langage naturel
+- Firebase Authentication
 
-Centre du contrôle utilisateur qui journalise chaque action de l'agent avec validation visuelle et transparence totale.
-
-### 4. ⚖️ Points de Contrôle Éthique
-
-L'agent s'arrête aux étapes nécessitant une décision éthique ou irréversible, permettant la reprise manuelle à tout moment.
-
-### 5. 🔒 Gestion Sécurisée des Données
-
-Stockage exclusif en Europe via GCP, conformité RGPD, et accès sécurisé via Cloud Secret Manager.
+**Infrastructure**
+- Hébergement: Firebase Hosting
+- Région: us-central1
+- Base de données: Cloud Firestore
+- CDN: Firebase CDN global
 
 ---
 
-## 🏗️ Architecture Technique
-
-### Stack Frontend
-
-- **Framework** : React 18 + TypeScript
-- **Build Tool** : Vite
-- **UI Library** : Material UI (MUI)
-- **State Management** : Zustand + React Query
-- **Hosting** : Firebase Hosting
-
-### Stack Backend
-
-- **Cloud Platform** : Google Cloud Platform (GCP)
-- **AI/ML** : Vertex AI
-- **Database** : Cloud Firestore
-- **Functions** : Cloud Functions
-- **Security** : Cloud Secret Manager
-- **Region** : Europe (France/UE) pour la souveraineté des données
+## Structure du projet
 
 ```
-┌─────────────────────────────────────────────────┐
-│         Firebase Hosting (Frontend)             │
-│      React + TypeScript + Material UI          │
-└───────────────────┬─────────────────────────────┘
-                    │
-┌───────────────────▼─────────────────────────────┐
-│           Google Cloud Platform                 │
-│                                                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
-│  │ Vertex   │  │  Cloud   │  │  Cloud   │     │
-│  │   AI     │  │Firestore │  │ Secret   │     │
-│  │          │  │          │  │ Manager  │     │
-│  └──────────┘  └──────────┘  └──────────┘     │
-│                                                  │
-│  ┌──────────────────────────────────────┐      │
-│  │      Cloud Functions (RPA)           │      │
-│  └──────────────────────────────────────┘      │
-└─────────────────────────────────────────────────┘
-```
-
----
-
-## 📁 Structure du Projet
-
-```
-SimplifIA/
-├── frontend/              # Application React
+demo-repository/
+├── frontend/                      # Application React
 │   ├── src/
-│   │   ├── components/   # Composants UI
-│   │   ├── config/       # Configuration Firebase
-│   │   ├── services/     # Services (API, temps réel)
-│   │   └── utils/        # Utilitaires
-│   └── public/
-├── functions/            # Cloud Functions
-│   └── api_trigger_agent/
-├── agent/                # Configuration Vertex AI
-├── docs/                 # Documentation
-│   ├── SimplifIA.md
-│   ├── Scenario_Demo.md
-│   ├── Stack_Frontend_SimplifIA.md
-│   └── PlanningDetaillé.md
-└── cloudbuild.yaml       # Configuration CI/CD
+│   │   ├── components/           # Composants React
+│   │   │   ├── chat/            # Interface de chat
+│   │   │   ├── dashboard/       # Tableau de bord
+│   │   │   ├── onboarding/      # Parcours d'accueil
+│   │   │   └── layout/          # Composants de mise en page
+│   │   ├── pages/               # Pages principales
+│   │   ├── services/            # Services Firebase
+│   │   ├── hooks/               # React hooks personnalisés
+│   │   ├── stores/              # Stores Zustand
+│   │   ├── config/              # Configuration Firebase
+│   │   └── types/               # Types TypeScript
+│   ├── public/                  # Ressources statiques
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── simplifia-backend/
+│   ├── functions/               # Cloud Functions
+│   │   ├── src/
+│   │   │   ├── agents/         # Agents IA
+│   │   │   │   ├── chat.ts    # Agent conversationnel
+│   │   │   │   ├── navigator.ts # Agent de navigation
+│   │   │   │   └── validator.ts # Agent de validation
+│   │   │   ├── services/       # Services métier
+│   │   │   │   ├── orchestrator.ts # Orchestration workflow
+│   │   │   │   └── vertex-ai.ts    # Service Vertex AI
+│   │   │   ├── middleware/     # Middlewares
+│   │   │   ├── utils/          # Utilitaires
+│   │   │   └── index.ts        # Point d'entrée
+│   │   └── package.json
+│   ├── firestore.rules         # Règles de sécurité Firestore
+│   └── firebase.json
+│
+└── README.md                    # Ce fichier
 ```
 
 ---
 
-## 🚦 Démarrage Rapide
+## Prérequis
 
-### Prérequis
+Avant de commencer, assurez-vous d'avoir installé:
 
-- Node.js 20+
-- npm ou pnpm
-- Compte Google Cloud Platform
-- Firebase CLI
+- Node.js 20.x ou supérieur
+- npm ou yarn
+- Firebase CLI: `npm install -g firebase-tools`
+- Git
 
-### Installation Frontend
+---
+
+## Installation et lancement du projet
+
+### 1. Cloner le repository
+
+```bash
+git clone <url-du-repository>
+cd demo-repository
+```
+
+### 2. Configuration Firebase (Frontend)
+
+Le frontend nécessite un fichier de configuration Firebase. Créez le fichier suivant:
+
+**Fichier: `frontend/.env.local`**
+
+```bash
+# Configuration Firebase
+# Ces clés sont spécifiques au projet simplifia-hackathon
+
+VITE_FIREBASE_API_KEY=AIzaSyCNEYSzmKmodOdwGnOa8qJhmrrl2XMaSSU
+VITE_FIREBASE_AUTH_DOMAIN=simplifia-hackathon.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=simplifia-hackathon
+VITE_FIREBASE_STORAGE_BUCKET=simplifia-hackathon.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=1072547192315
+VITE_FIREBASE_APP_ID=1:1072547192315:web:bbbdeb6b4eff240f18ff5e
+VITE_FIREBASE_MEASUREMENT_ID=G-KKVSF8QVHK
+```
+
+**Note importante:** Ce fichier est dans le `.gitignore` et ne doit pas être commité. Les valeurs ci-dessus sont celles du projet de démonstration.
+
+### 3. Installation et lancement du Frontend
 
 ```bash
 cd frontend
@@ -125,96 +150,413 @@ npm install
 npm run dev
 ```
 
-### Configuration GCP
+L'application sera accessible sur: http://localhost:5173
 
-1. Créer un projet GCP dans une région européenne
-2. Activer les APIs : Vertex AI, Firestore, Cloud Functions, Secret Manager
-3. Configurer Firebase Hosting
-4. Déployer les Cloud Functions
+### 4. Installation et lancement du Backend (optionnel en local)
 
----
+Le backend tourne sur Cloud Functions. Pour le développement local:
 
-## 📚 Documentation
+```bash
+cd simplifia-backend/functions
+npm install
+npm run build
+```
 
-### Documents Stratégiques
-- [**SimplifIA.md**](./SimplifIA.md) - Présentation complète du projet
-- [**Scenario_Demo.md**](./Scenario_Demo.md) - Scénario de démonstration
-- [**PlanningDetaillé.md**](./PlanningDetaillé.md) - Planning général du hackathon
+Pour tester les fonctions localement avec les émulateurs Firebase:
 
-### Documentation Technique Frontend
-- [**ROADMAP_FRONTEND.md**](./ROADMAP_FRONTEND.md) - 🚀 **Roadmap détaillée pour les 2 développeurs frontend**
-- [**Stack_Frontend_SimplifIA.md**](./Stack_Frontend_SimplifIA.md) - Stack technique complète
-- [**CODE_SNIPPETS.md**](./CODE_SNIPPETS.md) - Snippets de code prêts à l'emploi
+```bash
+cd simplifia-backend
+firebase emulators:start
+```
 
----
+### 5. Connexion à Firebase
 
-## 🎯 Différenciation
+Pour déployer ou utiliser les services Firebase:
 
-### SimplifIA vs Solutions Actuelles
-
-| Aspect | Solutions Actuelles | SimplifIA |
-|--------|---------------------|-----------|
-| Type | Chatbot informationnel | Agent autonome |
-| Action | Réactive | Proactive |
-| Erreurs | Bloque l'utilisateur | Auto-correction |
-| Transparence | Limitée | Totale (Tableau de Bord) |
-| Contrôle | Faible | Fort (points de contrôle) |
+```bash
+firebase login
+firebase use simplifia-hackathon
+```
 
 ---
 
-## 💼 Modèle Économique
+## Scripts disponibles
 
-**Modèle B2B2C** : Notre solution sera financée par des assurances, mutuelles ou banques désireuses d'offrir ce service premium à leurs clients lors d'événements de vie critiques (naissance, déménagement, décès, etc.).
+### Frontend
 
----
+```bash
+npm run dev          # Démarre le serveur de développement
+npm run build        # Compile l'application pour la production
+npm run preview      # Prévisualise la version de production
+npm run lint         # Vérifie le code avec ESLint
+npm run test         # Lance les tests avec Vitest
+```
 
-## 🔐 Sécurité et Conformité
+### Backend
 
-- ✅ Stockage des données exclusivement en Europe (France/UE)
-- ✅ Conformité RGPD
-- ✅ Chiffrement end-to-end
-- ✅ Authentification multi-facteurs
-- ✅ Audit trail complet
-
----
-
-## 👥 Équipe
-
-- **D1** : Lead Technique / DevOps
-- **D2** : Développeur Frontend / UX
-- **D3** : Développeur Backend / APIs
-- **A1** : Architecte IA / Agentique
-- **P1** : Pitch & Contenu
+```bash
+npm run build        # Compile le TypeScript en JavaScript
+npm run deploy       # Déploie les Cloud Functions
+npm run logs         # Affiche les logs des fonctions
+npm run serve        # Démarre les émulateurs Firebase locaux
+```
 
 ---
 
-## 📈 Roadmap
+## Architecture des agents
 
-- [x] Phase 1: Structuration et Fondations (J1-J3)
-- [x] Phase 2: Cœur Agentique (J4-J8)
-- [ ] Phase 3: Finalisation et Pitch (J9-J13)
+SimplifIA utilise une architecture multi-agents orchestrée:
+
+### ChatAgent
+- Gère la conversation avec l'utilisateur
+- Analyse l'intention via Vertex AI
+- Collecte les informations nécessaires
+- Valide la complétude des données avant de créer un processus
+
+### NavigatorAgent
+- Simule la navigation sur les sites administratifs
+- Identifie les formulaires à remplir
+- Gère les connexions aux portails (CAF, Impots.gouv, etc.)
+
+### ValidatorAgent
+- Vérifie la cohérence des données saisies
+- Valide les formats (dates, codes postaux, emails, etc.)
+- Détecte les incohérences avant soumission
+
+### ProcessOrchestrator
+- Coordonne l'exécution séquentielle des agents
+- Gère les tentatives et la récupération d'erreurs
+- Implémente un circuit breaker pour éviter les boucles infinies
+- Enregistre les métriques de performance
 
 ---
 
-## 🤝 Contribution
+## Flux de données
 
-Ce projet est développé dans le cadre d'un hackathon Google Agentic AI.
+```
+1. Utilisateur envoie un message dans le chat
+   |
+   v
+2. ChatAgent analyse avec Vertex AI
+   |
+   v
+3. ChatAgent collecte les informations manquantes
+   |
+   v
+4. Création d'un document "processes" dans Firestore
+   |
+   v
+5. Trigger Firebase: onProcessCreated
+   |
+   v
+6. ProcessOrchestrator.executeWorkflow()
+   |
+   v
+7. NavigatorAgent -> ValidatorAgent -> Completion
+   |
+   v
+8. Mise à jour en temps réel du tableau de bord
+```
 
 ---
 
-## 📄 License
+## Firestore - Collections principales
 
-MIT License - voir [LICENSE](LICENSE) pour plus de détails.
+### processes
+Stocke les processus de démarches administratives en cours.
+
+```typescript
+{
+  id: string
+  sessionId: string           // ID de session chat
+  userId: string              // ID utilisateur Firebase Auth
+  title: string               // Titre de la démarche
+  description: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  steps: Array<{
+    title: string
+    status: 'pending' | 'in-progress' | 'completed' | 'failed'
+  }>
+  userContext: Record<string, any>  // Données collectées
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+```
+
+### messages
+Messages du chat entre l'utilisateur et l'agent.
+
+```typescript
+{
+  id: string
+  sessionId: string
+  sender: 'user' | 'agent'
+  content: string
+  timestamp: Timestamp
+  metadata?: {
+    intent?: string
+    confidence?: number
+  }
+}
+```
+
+### activity_logs
+Journal d'activité pour le tableau de bord.
+
+```typescript
+{
+  id: string
+  processId: string
+  type: 'info' | 'success' | 'warning' | 'error'
+  message: string
+  details?: string
+  timestamp: Timestamp
+}
+```
 
 ---
 
-## 🌟 Pourquoi SimplifIA ?
+## Déploiement
 
-> "SimplifIA n'est pas un simple chatbot ou un RPA rigide. C'est un agent autonome qui raisonne, planifie, agit et se corrige."
+### Déploiement complet
 
-**Impact :** Mettre fin à l'exclusion numérique et redonner du temps aux citoyens pour ce qui compte vraiment.
+```bash
+# Backend (Cloud Functions + Firestore Rules)
+cd simplifia-backend
+firebase deploy --only functions,firestore:rules
+
+# Frontend (Firebase Hosting)
+cd frontend
+npm run build
+firebase deploy --only hosting
+```
+
+### Déploiement partiel
+
+```bash
+# Seulement les fonctions
+firebase deploy --only functions
+
+# Seulement les règles Firestore
+firebase deploy --only firestore:rules
+
+# Seulement le hosting
+firebase deploy --only hosting
+```
 
 ---
 
-**Développé avec ❤️ par l'équipe SimplifIA**
+## Configuration Vertex AI
+
+Le backend utilise Vertex AI pour l'analyse conversationnelle. La configuration se trouve dans:
+
+- **Projet GCP**: simplifia-hackathon
+- **Région**: us-central1
+- **Modèle**: gemini-1.5-flash-002
+
+Les identifiants sont gérés automatiquement par les Cloud Functions via le service account par défaut.
+
+---
+
+## Sécurité - Règles Firestore
+
+Les règles de sécurité Firestore permettent:
+
+- Lecture/écriture des messages si l'utilisateur est authentifié
+- Lecture/mise à jour des processus par sessionId
+- Lecture/création des logs d'activité
+- Toute opération nécessite une authentification Firebase
+
+Fichier: `simplifia-backend/firestore.rules`
+
+---
+
+## Variables d'environnement
+
+### Frontend (.env.local)
+
+Toutes les variables commencent par `VITE_` pour être exposées au frontend:
+
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
+- `VITE_FIREBASE_MEASUREMENT_ID`
+
+### Backend
+
+Le backend n'a pas besoin de fichier .env en production. Les Cloud Functions utilisent automatiquement les credentials du projet Firebase.
+
+Pour le développement local, un fichier `functions/.env.example` est disponible.
+
+---
+
+## Dépannage
+
+### Problème: "Missing or insufficient permissions"
+
+**Solution**: Vérifiez que vous êtes bien authentifié:
+```bash
+firebase login
+firebase use simplifia-hackathon
+```
+
+### Problème: Les messages du chat ne s'affichent pas
+
+**Solution**: Vérifiez que:
+1. Le frontend est bien connecté à Firebase (voir console du navigateur)
+2. Les règles Firestore autorisent la lecture
+3. L'utilisateur est authentifié
+
+### Problème: Les Cloud Functions ne se déclenchent pas
+
+**Solution**: Vérifiez les logs:
+```bash
+firebase functions:log
+```
+
+Ou dans la console GCP: Cloud Functions > Logs
+
+### Problème: Build error avec Vite
+
+**Solution**: Nettoyez et réinstallez:
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+---
+
+## Tests
+
+### Frontend
+
+```bash
+cd frontend
+npm run test              # Lance les tests une fois
+npm run test:watch        # Mode watch
+npm run test:coverage     # Avec couverture de code
+```
+
+### Backend
+
+Les tests backend utilisent les émulateurs Firebase:
+
+```bash
+cd simplifia-backend/functions
+npm run serve
+```
+
+---
+
+## Structure des composants React
+
+### Composants principaux
+
+- **ChatInterface**: Interface de chat avec l'agent
+- **DashboardPage**: Tableau de bord avec processus et logs
+- **ProcessTimeline**: Affichage visuel des étapes d'un processus
+- **ActivityLogList**: Liste filtrée des logs d'activité
+
+### Hooks personnalisés
+
+- **useSessionManager**: Gestion de la session chat
+- **useNotifications**: Gestion des notifications toast
+- **useThemeMode**: Mode clair/sombre
+
+### Services
+
+- **firestore.ts**: Opérations CRUD sur Firestore
+- **realtime.ts**: Abonnements temps réel (onSnapshot)
+
+---
+
+## Technologies utilisées
+
+### Frontend
+- React 19.1
+- TypeScript 5.9
+- Vite (bundler)
+- Material UI 7
+- Zustand (state management)
+- React Router 7
+- Framer Motion (animations)
+- Firebase SDK 12
+
+### Backend
+- Node.js 22
+- TypeScript 5.7
+- Firebase Admin SDK 12
+- Firebase Functions 6 (2nd gen)
+- Vertex AI SDK 1.7
+- Express 4
+
+### Infrastructure
+- Firebase Hosting
+- Cloud Functions
+- Cloud Firestore
+- Firebase Authentication
+- Vertex AI
+
+---
+
+## Fonctionnalités principales
+
+### 1. Chat conversationnel
+L'utilisateur peut discuter naturellement avec l'agent pour décrire sa démarche administrative.
+
+### 2. Collecte intelligente d'informations
+L'agent identifie automatiquement les informations manquantes et les demande de manière contextuelle.
+
+### 3. Orchestration de workflow
+Une fois les informations collectées, le système crée un processus et orchestre les différentes étapes automatiquement.
+
+### 4. Tableau de bord temps réel
+L'utilisateur peut suivre en temps réel l'avancement de ses démarches avec un journal d'activité détaillé.
+
+### 5. Types de démarches supportées
+- Aide au logement (APL/CAF)
+- Déclaration de naissance
+- Passeport / Carte d'identité
+- Déclaration d'impôts
+- RSA / Aides sociales
+
+---
+
+## URLs importantes
+
+- **Application production**: https://simplifia-hackathon.web.app
+- **Console Firebase**: https://console.firebase.google.com/project/simplifia-hackathon
+- **Console GCP**: https://console.cloud.google.com/
+
+---
+
+## Support et contribution
+
+Ce projet a été développé dans le cadre d'un hackathon Google Agentic AI.
+
+Pour toute question technique, consultez:
+- Les logs Firebase: `firebase functions:log`
+- La console Firestore pour l'état des données
+- Les DevTools du navigateur (onglet Console et Network)
+
+---
+
+## Licence
+
+MIT
+
+## Note sur la souveraineté des données
+
+**État actuel**: Le projet utilise la région `us-central1` pour des raisons de compatibilité maximale avec tous les services Google Cloud (Vertex AI, Cloud Functions Gen 2).
+
+**Plan de migration**: Pour une mise en production réelle, une migration vers `europe-west1` (Belgique) est prévue afin de garantir la conformité RGPD et la souveraineté des données européennes. Cette migration nécessite:
+- La création d'un nouveau projet Firebase
+- Le déploiement de Firestore en région européenne
+- La reconfiguration de Vertex AI
+- La migration des données utilisateurs
+
+**Estimation**: 4 heures de travail, faisable sans interruption de service via une migration progressive.
 

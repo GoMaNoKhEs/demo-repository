@@ -67,8 +67,6 @@ export class NavigatorAgent {
     const startTime = Date.now();
 
     try {
-      console.log(`🧭 Navigator: Début navigation sur ${siteName} pour processus ${processId}`);
-
       // LOG DÉTAILLÉ: Début du processus de navigation
       await this.logDetailedAction(
         processId,
@@ -143,7 +141,7 @@ export class NavigatorAgent {
       // LOG DÉTAILLÉ: Soumission formulaire
       await this.logDetailedAction(
         processId,
-        `📤 Soumission du formulaire en cours...`,
+        "📤 Soumission du formulaire en cours...",
         "info"
       );
 
@@ -153,7 +151,7 @@ export class NavigatorAgent {
       if (apiResponse.statut === "success") {
         await this.logDetailedAction(
           processId,
-          `✅ Formulaire envoyé avec succès`,
+          "✅ Formulaire envoyé avec succès",
           "success",
           { duration: `${duration}ms` }
         );
@@ -177,7 +175,7 @@ export class NavigatorAgent {
       } else {
         await this.logDetailedAction(
           processId,
-          `⚠️ Soumission avec avertissements`,
+          "⚠️ Soumission avec avertissements",
           "warning",
           { statut: apiResponse.statut }
         );
@@ -191,7 +189,6 @@ export class NavigatorAgent {
         await this.updateProcessWithReference(processId, apiResponse.numeroDossier, siteName);
       }
 
-      console.log(`✅ Navigator: Navigation terminée sur ${siteName} - ${apiResponse.statut}`);
 
       // 4. Retourner le résultat formaté
       return {
@@ -205,7 +202,7 @@ export class NavigatorAgent {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      console.error(`❌ Navigator: Erreur navigation sur ${siteName}:`, error);
+      console.error(`Navigator: Erreur navigation sur ${siteName}:`, error);
 
       // Logger l'erreur dans activity_logs
       await this.logActivity(processId, siteName, {
@@ -217,9 +214,10 @@ export class NavigatorAgent {
         documentsManquants: [],
       }, duration);
 
+      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
       return {
         success: false,
-        message: `Erreur lors de la navigation sur ${siteName}: ${error instanceof Error ? error.message : "Erreur inconnue"}`,
+        message: `Erreur lors de la navigation sur ${siteName}: ${errorMessage}`,
       };
     }
   }
@@ -248,9 +246,8 @@ export class NavigatorAgent {
         agent: "NavigatorAgent",
         metadata: metadata || {},
       });
-      console.log(`📝 [${type.toUpperCase()}] ${message}`);
     } catch (error) {
-      console.error("❌ Erreur logging action détaillée:", error);
+      console.error("Erreur logging action détaillée:", error);
       // Ne pas bloquer le flux si le logging échoue
     }
   }
@@ -284,13 +281,11 @@ export class NavigatorAgent {
         agent: "NavigatorAgent",
       };
 
-      const docRef = await this.firestore
+      await this.firestore
         .collection("activity_logs")
         .add(activityLog);
-
-      console.log(`📝 Activity log créé: ${docRef.id}`);
     } catch (error) {
-      console.error("❌ Erreur lors du logging de l'activité:", error);
+      console.error("Erreur lors du logging de l'activité:", error);
       // Ne pas bloquer le flux si le logging échoue
     }
   }
@@ -317,10 +312,8 @@ export class NavigatorAgent {
           lastUpdated: Timestamp.now(),
           status: "submitted", // Statut mis à jour après soumission
         });
-
-      console.log(`📄 Processus ${processId} mis à jour avec numéro: ${numeroDossier}`);
     } catch (error) {
-      console.error("❌ Erreur lors de la mise à jour du processus:", error);
+      console.error("Erreur lors de la mise à jour du processus:", error);
       // Ne pas bloquer le flux si la mise à jour échoue
     }
   }
@@ -350,11 +343,10 @@ export class NavigatorAgent {
         return timeB - timeA; // desc
       });
 
-      console.log(`📊 ${activities.length} activités trouvées pour processus ${processId}`);
 
       return activities;
     } catch (error) {
-      console.error("❌ Erreur lors de la récupération des activités:", error);
+      console.error("Erreur lors de la récupération des activités:", error);
       return [];
     }
   }
@@ -384,8 +376,6 @@ export class NavigatorAgent {
     const startTime = Date.now();
 
     try {
-      console.log(`🔄 Navigator: Début mapping données pour ${siteName}`);
-
       // LOG DÉTAILLÉ: Début du mapping
       await this.logDetailedAction(
         processId,
@@ -409,7 +399,7 @@ export class NavigatorAgent {
       // LOG DÉTAILLÉ: Appel à l'IA pour mapping
       await this.logDetailedAction(
         processId,
-        `🤖 Utilisation de l'IA pour optimiser le mapping`,
+        "🤖 Utilisation de l'IA pour optimiser le mapping",
         "info"
       );
 
@@ -427,10 +417,10 @@ export class NavigatorAgent {
         processId,
         `✅ Transformation réussie (confiance: ${Math.round((mappingResult.confidence || 0) * 100)}%)`,
         "success",
-        { 
+        {
           duration: `${duration}ms`,
           confidence: mappingResult.confidence,
-          mappedFieldsCount: Object.keys(mappingResult.mappedData).length
+          mappedFieldsCount: Object.keys(mappingResult.mappedData).length,
         }
       );
 
@@ -445,7 +435,7 @@ export class NavigatorAgent {
       } else {
         await this.logDetailedAction(
           processId,
-          `✅ Tous les champs requis sont présents`,
+          "✅ Tous les champs requis sont présents",
           "success"
         );
       }
@@ -502,11 +492,10 @@ export class NavigatorAgent {
       // Logger le mapping dans Firestore (log global)
       await this.logMappingActivity(processId, siteName, mappingResult, duration);
 
-      console.log(`✅ Navigator: Mapping terminé pour ${siteName} (${duration}ms)`);
 
       return mappingResult;
     } catch (error) {
-      console.error(`❌ Navigator: Erreur mapping pour ${siteName}:`, error);
+      console.error(`Navigator: Erreur mapping pour ${siteName}:`, error);
 
       // LOG DÉTAILLÉ: Erreur lors du mapping
       await this.logDetailedAction(
@@ -664,7 +653,7 @@ Retourne UNIQUEMENT le JSON (pas de texte avant/après).`;
         duration,
       });
     } catch (error) {
-      console.error("❌ Erreur logging mapping:", error);
+      console.error("Erreur logging mapping:", error);
     }
   }
 
@@ -816,7 +805,7 @@ Retourne UNIQUEMENT le JSON (pas de texte avant/après).`;
 
     // Déterminer la clé basée sur siteName + formType
     const key = formType ? `${siteName}_${formType.toUpperCase()}` : `${siteName}_DEFAULT`;
-    
+
     return structures[key] || structures[`${siteName}_APL`] || {
       fields: [],
       siteUrl: `https://www.${siteName.toLowerCase()}.fr`,

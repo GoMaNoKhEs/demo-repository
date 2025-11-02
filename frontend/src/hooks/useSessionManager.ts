@@ -109,7 +109,6 @@ export const useSessionManager = (userId?: string) => {
     setCurrentSessionId(newSessionId);
     setStoredSessionId(newSessionId); // Persister dans Zustand
 
-    console.log('[SessionManager] New session created:', newSessionId);
     return newSessionId;
   }, [generateSessionId, userId, loadSessions, saveSessions, clearChatMessages, setStoredSessionId]);
 
@@ -138,7 +137,6 @@ export const useSessionManager = (userId?: string) => {
     setCurrentSessionId(sessionId);
     setStoredSessionId(sessionId); // Persister dans Zustand
     clearChatMessages(); // Vider le chat actuel avant de charger
-    console.log('[SessionManager] Loading session:', sessionId);
     // Note: subscribeToMessages se rechargera automatiquement avec le nouveau sessionId
   }, [clearChatMessages, setStoredSessionId]);
 
@@ -189,7 +187,6 @@ export const useSessionManager = (userId?: string) => {
   useEffect(() => {
     // ⚠️ IMPORTANT : Ne s'exécute que si userId est défini
     if (!userId) {
-      console.log('[SessionManager] ⏳ Waiting for userId...');
       setCurrentSessionId(''); // Reset
       return;
     }
@@ -201,17 +198,14 @@ export const useSessionManager = (userId?: string) => {
     if (storedSessionId) {
       const storedSession = existingSessions.find(s => s.id === storedSessionId);
       if (storedSession && storedSession.userId === userId) {
-        console.log('[SessionManager] ✅ Restoring session from store:', storedSessionId);
         setCurrentSessionId(storedSessionId);
         return;
       } else {
-        console.log('[SessionManager] ⚠️ Stored session invalid or different user');
       }
     }
 
     // Si aucune session active, créer une nouvelle
     if (!currentSessionId) {
-      console.log('[SessionManager] Creating NEW session');
       
       const newId = generateSessionId();
       const now = new Date().toISOString();
@@ -228,7 +222,6 @@ export const useSessionManager = (userId?: string) => {
       setCurrentSessionId(newId);
       setStoredSessionId(newId); // Persister
       
-      console.log('[SessionManager] ✅ New session created:', newId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]); // 🔥 CHANGEMENT : Dépendance sur userId au lieu de []

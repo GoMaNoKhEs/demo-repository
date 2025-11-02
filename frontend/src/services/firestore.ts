@@ -30,7 +30,6 @@ export const sendChatMessage = async (
       throw new Error('userId manquant - l\'utilisateur doit être authentifié');
     }
 
-    console.log('[FirebaseWriter] Envoi d\'un message:', { sessionId, role, userId, content: content.substring(0, 50) + '...' });
     
     const messageData = {
       sessionId,
@@ -46,10 +45,9 @@ export const sendChatMessage = async (
 
     const docRef = await addDoc(collection(db, 'messages'), messageData);
     
-    console.log('✅ Message envoyé avec ID:', docRef.id);
     return docRef.id;
   } catch (error) {
-    console.error('❌ Erreur envoi message:', error);
+    console.error('Erreur envoi message:', error);
     throw error;
   }
 };
@@ -64,7 +62,6 @@ export const addActivityLog = async (
   details?: string
 ): Promise<string> => {
   try {
-    console.log('[FirebaseWriter] Ajout d\'un log:', { processId, type, message });
     
     const logData = {
       processId,
@@ -76,10 +73,9 @@ export const addActivityLog = async (
 
     const docRef = await addDoc(collection(db, 'activity_logs'), logData);
     
-    console.log('✅ Log ajouté avec ID:', docRef.id);
     return docRef.id;
   } catch (error) {
-    console.error('❌ Erreur ajout log:', error);
+    console.error('Erreur ajout log:', error);
     throw error;
   }
 };

@@ -23,10 +23,7 @@ export const googleProvider = new GoogleAuthProvider();
 // Activer la persistence offline
 // enableIndexedDbPersistence(db).catch((err) => {
 //   if (err.code === 'failed-precondition') {
-//     console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
 //   } else if (err.code === 'unimplemented') {
-//     console.warn('The current browser does not support persistence.');
 //   }
 // });
 
-console.log('[Firebase] 🔥 Firestore initialized WITHOUT persistence (CORS fix)');

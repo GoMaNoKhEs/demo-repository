@@ -22,18 +22,12 @@ export const ChatInterface = ({ sessionId, userId }: ChatInterfaceProps) => {
 
   // 🔍 DEBUG : Logger les props reçues
   useEffect(() => {
-    console.log('[ChatInterface] 🔍 Props received:', {
-      sessionId,
-      userId,
-      hasSessionId: !!sessionId,
-      hasUserId: !!userId
-    });
+    // Logs supprimés
   }, [sessionId, userId]);
 
   // 🔥 LOG : Tracer les messages reçus du store
   useEffect(() => {
-    console.log('[ChatInterface] 💬 chatMessages updated from store:', chatMessages.length, 'messages');
-    console.log('[ChatInterface] 💬 chatMessages data:', chatMessages);
+    // Logs supprimés
   }, [chatMessages]);
 
   const scrollToBottom = () => {
@@ -57,30 +51,21 @@ export const ChatInterface = ({ sessionId, userId }: ChatInterfaceProps) => {
     const textToSend = messageText || input;
     if (!textToSend.trim()) return;
 
-    console.log('[ChatInterface] 🚀 handleSend called:', {
-      textToSend,
-      sessionId,
-      userId,
-      hasUserId: !!userId,
-      hasSessionId: !!sessionId
-    });
-
     // STRICT : Vérifier que l'utilisateur est connecté
     if (!userId) {
-      console.error('[ChatInterface] ❌ userId manquant!');
+      console.error('[ChatInterface] userId manquant!');
       notifications.error('Vous devez être connecté pour envoyer un message');
       return;
     }
 
     // Si pas de sessionId, erreur (ne devrait jamais arriver)
     if (!sessionId) {
-      console.error('[ChatInterface] ❌ sessionId manquant!');
+      console.error('[ChatInterface] sessionId manquant!');
       notifications.error('Session invalide - veuillez vous reconnecter');
       return;
     }
 
     try {
-      console.log('[ChatInterface] 📤 Envoi message vers Firestore...');
       // Envoyer vers Firestore → Déclenche le backend
       // Le listener temps réel ajoutera automatiquement le message dans l'UI
       await sendChatMessage(sessionId, textToSend, 'user', userId);
@@ -91,9 +76,8 @@ export const ChatInterface = ({ sessionId, userId }: ChatInterfaceProps) => {
       // Notification de succès
       notifications.success('Message envoyé à l\'agent');
       
-      console.log('[Chat] ✅ Message envoyé vers Firestore:', { sessionId, userId, content: textToSend });
     } catch (error) {
-      console.error('[Chat] ❌ Erreur envoi message:', error);
+      console.error('[Chat] Erreur envoi message:', error);
       notifications.error('Erreur lors de l\'envoi du message');
     }
   };

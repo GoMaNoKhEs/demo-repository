@@ -25,7 +25,7 @@ interface ActivityLogListProps {
 
 export const ActivityLogList = ({ logs }: ActivityLogListProps) => {
   const [filter, setFilter] = useState<'all' | 'success' | 'error' | 'warning' | 'info'>('all');
-  const [autoScroll, setAutoScroll] = useState(true);
+  const [autoScroll, setAutoScroll] = useState(false);
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
   const logsEndRef = useRef<HTMLDivElement>(null);
 
@@ -62,10 +62,6 @@ export const ActivityLogList = ({ logs }: ActivityLogListProps) => {
 
   // Debug pour vérifier le filtrage
   useEffect(() => {
-    console.log('🔍 Filtre actuel:', filter);
-    console.log('📊 Nombre de logs total:', logs.length);
-    console.log('📊 Nombre de logs filtrés:', filteredLogs.length);
-    console.log('📋 Types de logs disponibles:', logs.map(l => l.type));
   }, [filter, logs, filteredLogs]);
 
   const getIcon = (type: ActivityLog['type']) => {

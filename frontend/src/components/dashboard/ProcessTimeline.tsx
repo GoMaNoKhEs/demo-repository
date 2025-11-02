@@ -30,17 +30,14 @@ export const ProcessTimeline = ({ steps, currentStepIndex }: ProcessTimelineProp
     
     // Si c'est un objet {"0": {...}, "1": {...}}, convertir en array
     if (typeof steps === 'object') {
-      console.log('[ProcessTimeline] 🔄 Converting steps object to array');
       const stepsArray = Object.entries(steps as Record<string, any>).map(([key, value]) => ({
         ...value,
         id: key,
         order: parseInt(key, 10),
       }));
-      console.log('[ProcessTimeline] ✅ Converted steps:', stepsArray);
       return stepsArray;
     }
     
-    console.warn('[ProcessTimeline] ⚠️ Steps format invalide:', typeof steps);
     return [];
   })();
 
@@ -159,7 +156,6 @@ export const ProcessTimeline = ({ steps, currentStepIndex }: ProcessTimelineProp
   // 🔥 FIX : Utiliser normalizedSteps au lieu de steps
   const sortedSteps = [...normalizedSteps].sort((a, b) => a.order - b.order);
   
-  console.log('[ProcessTimeline] 📊 Rendering timeline with', sortedSteps.length, 'steps');
 
   return (
     <Box sx={{ position: 'relative', py: 2 }}>

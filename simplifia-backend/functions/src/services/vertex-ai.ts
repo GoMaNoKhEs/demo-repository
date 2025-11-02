@@ -62,7 +62,7 @@ export class VertexAIService {
       // ✅ Extraction sûre de la réponse avec optional chaining
       return response.response.candidates?.[0].content.parts?.[0].text || "";
     } catch (error) {
-      console.error("❌ Erreur Vertex AI:", error);
+      console.error("Erreur Vertex AI:", error);
       throw error;
     }
   }

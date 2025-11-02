@@ -23,51 +23,58 @@ export class ChatAgent {
    */
   private getRequiredFieldsForDemarche(demarche: string): string[] {
     // 🔥 FIX: Vérifier que demarche n'est pas null/undefined
-    if (!demarche || typeof demarche !== 'string') {
-      console.warn('[ChatAgent] demarche is null or invalid, returning basic fields');
+    if (!demarche || typeof demarche !== "string") {
       return ["nom", "prenom", "email", "telephone"];
     }
-    
     const demarcheLower = demarche.toLowerCase();
-    
+
+    // Déclaration d'impôts (doit être AVANT "déclaration" générique)
+    if (demarcheLower.includes("impôt") || demarcheLower.includes("impot") || demarcheLower.includes("fiscale")) {
+      return [
+        "nom", "prenom", "email", "telephone", "dateNaissance", "lieuNaissance",
+        "adresseComplete", "ville", "codePostal",
+      ];
+    }
+
     // APL / Aide au logement
     if (demarcheLower.includes("apl") || demarcheLower.includes("aide au logement") || demarcheLower.includes("caf")) {
       return [
         "nom", "prenom", "email", "telephone", "dateNaissance",
         "adresseComplete", "ville", "codePostal",
         "situation", "logement", "loyer", "charges", "revenus",
-        "nomBailleur", "dateEntree", "surfaceLogement"
+        "nomBailleur", "dateEntree", "surfaceLogement",
       ];
     }
-    
+
     // Déclaration de naissance (13 champs)
     if (demarcheLower.includes("naissance") || demarcheLower.includes("déclaration")) {
       return [
         "nom", "prenom", "email", "telephone", "dateNaissance",
         "adresseComplete", "ville", "codePostal", "lieuNaissance",
-        "nomEnfant", "prenomEnfant", "dateNaissanceEnfant", "lieuNaissanceEnfant"
+        "nomEnfant", "prenomEnfant", "dateNaissanceEnfant", "lieuNaissanceEnfant",
       ];
     }
-    
+
     // Carte d'identité / Passeport (14 champs)
-    if (demarcheLower.includes("carte d'identité") || demarcheLower.includes("passeport") || demarcheLower.includes("cni")) {
+    if (demarcheLower.includes("carte d'identité") ||
+        demarcheLower.includes("passeport") ||
+        demarcheLower.includes("cni")) {
       return [
         "nom", "prenom", "email", "telephone", "dateNaissance", "lieuNaissance",
         "adresseComplete", "ville", "codePostal",
-        "numeroSecu", "taille", "couleurYeux", "photo", "timbreFiscal"
+        "numeroSecu", "taille", "couleurYeux", "photo", "timbreFiscal",
       ];
     }
-    
     // RSA / Aide sociale (14 champs)
     if (demarcheLower.includes("rsa") || demarcheLower.includes("revenu") || demarcheLower.includes("aide sociale")) {
       return [
         "nom", "prenom", "email", "telephone", "dateNaissance",
         "adresseComplete", "ville", "codePostal",
         "situation", "revenus", "charges", "numeroSecu",
-        "numeroAllocataire", "rib"
+        "numeroAllocataire", "rib",
       ];
     }
-    
+
     // Par défaut : infos de base
     return ["nom", "prenom", "email", "telephone", "ville"];
   }
@@ -78,11 +85,10 @@ export class ChatAgent {
    */
   private validateRequiredFields(demarche: string, collectedInfo: any): {valid: boolean, missingFields: string[]} {
     // 🔥 FIX: Vérifier que demarche n'est pas null
-    if (!demarche || typeof demarche !== 'string') {
-      console.warn('[ChatAgent] validateRequiredFields: demarche is null');
+    if (!demarche || typeof demarche !== "string") {
       return { valid: false, missingFields: ["démarche non identifiée"] };
     }
-    
+
     const requiredFields = this.getRequiredFieldsForDemarche(demarche);
     const missingFields: string[] = [];
 
@@ -95,7 +101,7 @@ export class ChatAgent {
 
     return {
       valid: missingFields.length === 0,
-      missingFields
+      missingFields,
     };
   }
 
@@ -130,12 +136,9 @@ export class ChatAgent {
   async processUserMessage(
     sessionId: string,
     userMessage: string,
-    userId?: string  // ✅ OPTIONNEL pour rétrocompatibilité
+    userId?: string // OPTIONNEL pour rétrocompatibilité
   ): Promise<void> {
     try {
-      console.log(`Processing message for session ${sessionId}`);
-      console.log(`userId from trigger: ${userId}`);
-
       // Récupérer l'historique de conversation
       const conversationHistory = await this.getConversationHistory(sessionId);
 
@@ -148,38 +151,27 @@ export class ChatAgent {
       // ⚠️ VALIDATION PROGRAMMATIQUE : Override readyToStart si champs manquants
       const fieldsValidation = this.validateRequiredFields(intentAnalysis.demarche, intentAnalysis.collectedInfo);
       if (!fieldsValidation.valid) {
-        console.log(`❌ [ChatAgent] readyToStart forcé à FALSE - Champs manquants: ${fieldsValidation.missingFields.join(", ")}`);
         intentAnalysis.readyToStart = false;
         intentAnalysis.missingInfo = fieldsValidation.missingFields;
-      } else {
-        console.log(`✅ [ChatAgent] Tous les champs requis sont collectés (${this.getRequiredFieldsForDemarche(intentAnalysis.demarche).length} champs)`);
       }
 
       // Logs détaillés pour debug
-      console.log(`[ChatAgent] Intent Analysis for session ${sessionId}:`);
-      console.log(`  - demarche: ${intentAnalysis.demarche}`);
-      console.log(`  - readyToStart: ${intentAnalysis.readyToStart}`);
-      console.log(`  - userConfirmed: ${intentAnalysis.userConfirmed}`);
-      console.log(`  - confidence: ${intentAnalysis.confidence}`);
-      console.log(`  - missingInfo: ${JSON.stringify(intentAnalysis.missingInfo)}`);
-      console.log(`  - collectedInfo: ${JSON.stringify(intentAnalysis.collectedInfo)}`);
 
       // Si l'utilisateur est prêt et confirme (détecté par l'IA), créer le processus
       if (intentAnalysis.readyToStart && intentAnalysis.userConfirmed && intentAnalysis.confidence > 0.7) {
-        console.log(`[ChatAgent] Creating process for session ${sessionId}`);
-        await this.createProcessFromConversation(sessionId, intentAnalysis, userId);  // ✅ PASSER userId
+        await this.createProcessFromConversation(sessionId, intentAnalysis, userId); // PASSER userId
         return; // Fin de la conversation
       }
 
       // Si prêt mais pas encore confirmé → demander confirmation explicite
       if (intentAnalysis.readyToStart && !intentAnalysis.userConfirmed && intentAnalysis.confidence > 0.7) {
-        console.log("[ChatAgent] Ready but not confirmed - asking for confirmation");
         const collectedInfoSummary = Object.entries(intentAnalysis.collectedInfo || {})
           .filter(([_, value]) => value !== null && value !== "")
           .map(([key, value]) => `✓ ${this.formatFieldName(key)}: ${value}`)
           .join("\n");
 
-        const confirmationPrompt = `✅ Parfait ! J'ai toutes les informations nécessaires pour votre ${intentAnalysis.demarche}.
+        const confirmationPrompt = `✅ Parfait ! 
+        J'ai toutes les informations nécessaires pour votre ${intentAnalysis.demarche}.
 
 📋 **Récapitulatif :**
 ${collectedInfoSummary}
@@ -246,8 +238,6 @@ Ou si vous avez déjà toutes les infos, répondez "oui" pour que je crée votre
 
       // Ajouter la réponse de l'agent au chat
       await this.addAgentResponse(sessionId, response);
-
-      console.log(`Message processed for session ${sessionId}`);
     } catch (error) {
       console.error(`CHAT: Error processing message for session ${sessionId}: ${error}`);
 
@@ -354,7 +344,14 @@ IMPORTANT :
 - ✅ TOUJOURS demander TOUTES les infos en UNE SEULE FOIS
 - ❌ JAMAIS demander progressivement (2-3 infos à la fois)
 - 📋 Présenter les infos de manière organisée et claire
-- ✅ Si incomplet → RE-LISTER seulement ce qui manque`;
+- ✅ Si incomplet → RE-LISTER seulement ce qui manque
+
+Surtout quand tu reponds, ta réponse ne doit pas être compacte. Il faut que ce soit lisible et aéré pour l'utilisateur.
+S'il ya des listes, utilise des puces et des sauts de ligne pour que ce soit facile à lire.
+s'il y a une information importante, mets la en gras.
+S'il y a une information qui manque vérifie bien dans les réponses précédentes avant de la redemander.Peut-être que 
+l'utilisateur l'a déjà donnée plus tôt dans la conversation ou tout simplement dans son dernier message ou encore 
+il n'est pas concerné par cette information.`;
   }
 
   /**
@@ -476,13 +473,13 @@ Retourne UNIQUEMENT ce JSON (pas de markdown):
 
       if (missingFormatted.length > 0) {
         parts.push(`\n❗ INFORMATIONS MANQUANTES OBLIGATOIRES:\n${missingFormatted.join("\n")}`);
-        parts.push(`\n⚠️ Tu DOIS demander TOUTES ces informations manquantes EN UNE SEULE FOIS (pas progressivement)`);
+        parts.push("\n⚠️ Tu DOIS demander TOUTES ces informations manquantes EN UNE SEULE FOIS (pas progressivement)");
       }
     }
 
     // État de préparation
     if (intentAnalysis.readyToStart) {
-      parts.push(`\n✅ TOUTES LES INFOS SONT COLLECTÉES - Demander confirmation pour créer le dossier`);
+      parts.push("\n✅ TOUTES LES INFOS SONT COLLECTÉES - Demander confirmation pour créer le dossier");
     }
 
     return parts.length > 0 ? `\n${parts.join("\n")}\n` : "";
@@ -647,8 +644,10 @@ RÈGLES D'EXTRACTION INTELLIGENTE:
    - "CNI", "carte identité", "carte nationale" → Demande CNI
    - "permis conduire" → Demande permis
 3. **Extraire même dans phrases complexes**:
-   - "Je m'appelle Jean Dubois, j'habite à Lyon 69003" → nom: "Dubois", prenom: "Jean", ville: "Lyon", codePostal: "69003"
-   - "Je suis né le 12/07/1985 à Toulouse Haute-Garonne" → dateNaissance: "12/07/1985", lieuNaissance: "Toulouse, Haute-Garonne"
+   - "Je m'appelle Jean Dubois, j'habite à Lyon 69003" → 
+   nom: "Dubois", prenom: "Jean", ville: "Lyon", codePostal: "69003"
+   - "Je suis né le 12/07/1985 à Toulouse Haute-Garonne" → 
+   dateNaissance: "12/07/1985", lieuNaissance: "Toulouse, Haute-Garonne"
    - "Je mesure 178 cm" → taille: 178
    - "Yeux marron" ou "couleur yeux marron" → couleurYeux: "marron"
    - "J'ai une photo d'identité" ou "photo prête" → photo: "oui"
@@ -687,12 +686,14 @@ CRITÈRES POUR readyToStart = TRUE (SELON LA DÉMARCHE):
 
 Critères pour userConfirmed = true:
 - L'utilisateur confirme EXPLICITEMENT vouloir créer le dossier
-- Expressions OUI: "oui", "ok", "d'accord", "vas-y", "lance", "je veux", "crée", "démarre", "go", "c'est bon", "c'est parti", "fais-le toi-même", "lance le processus"
+- Expressions OUI: "oui", "ok", "d'accord", "vas-y", "lance", "je veux", 
+"crée", "démarre", "go", "c'est bon", "c'est parti", "fais-le toi-même", "lance le processus"
 - Expressions NON (hésitations): "oui mais...", "peut-être", "je sais pas", "attends"
 - IMPORTANT: Si l'utilisateur dit "lance le processus" ou "fais-le pour moi" → userConfirmed = TRUE
 
 EXEMPLES EXTRACTION:
-Message: "Je veux renouveler mon passeport Pierre Leroy, né 12/07/1985 à Toulouse, j'habite 78 Rue République 69002 Lyon, je mesure 178 cm, yeux marron"
+Message: "Je veux renouveler mon passeport Pierre Leroy, né 12/07/1985 à Toulouse, 
+j'habite 78 Rue République 69002 Lyon, je mesure 178 cm, yeux marron"
 → demarche: "Renouvellement passeport"
 → nom: "Leroy", prenom: "Pierre", dateNaissance: "12/07/1985"
 → lieuNaissance: "Toulouse", ville: "Lyon", codePostal: "69002"
@@ -737,23 +738,17 @@ RÈGLE CUMULATIVE:
    */
   private async generateDetailedSteps(demarche: string, collectedInfo: any): Promise<any[]> {
     try {
-      console.log(`🤖 Génération intelligente des steps pour: ${demarche}`);
-      
       // Tentative de génération par IA
       const aiGeneratedSteps = await this.generateStepsWithAI(demarche, collectedInfo);
-      
+
       if (aiGeneratedSteps && aiGeneratedSteps.length > 0) {
-        console.log(`✅ ${aiGeneratedSteps.length} steps générés par IA avec succès`);
         return aiGeneratedSteps;
       }
-      
+
       // Si IA échoue, fallback vers système hardcodé
-      console.warn("⚠️ Génération IA échouée, utilisation du système de fallback");
       return this.generateDetailedStepsFallback(demarche, collectedInfo);
-      
     } catch (error) {
-      console.error("❌ Erreur génération steps avec IA:", error);
-      console.log("🔄 Utilisation du système de fallback");
+      console.error("Erreur génération steps avec IA:", error);
       return this.generateDetailedStepsFallback(demarche, collectedInfo);
     }
   }
@@ -765,8 +760,9 @@ RÈGLE CUMULATIVE:
   private async generateStepsWithAI(demarche: string, collectedInfo: any): Promise<any[]> {
     // Construire le contexte utilisateur de manière sécurisée
     const userContextSummary = this.buildUserContextSummary(collectedInfo);
-    
-    const prompt = `Tu es un expert en démarches administratives françaises. Ta mission est de générer les étapes DÉTAILLÉES et PERSONNALISÉES d'un processus administratif.
+
+    const prompt = `Tu es un expert en démarches administratives françaises. 
+    Ta mission est de générer les étapes DÉTAILLÉES et PERSONNALISÉES d'un processus administratif.
 
 **DÉMARCHE À TRAITER :**
 "${demarche}"
@@ -862,7 +858,8 @@ Retourne UNIQUEMENT un array JSON (sans texte avant/après, sans markdown) :
     "name": "Validation éligibilité APL",
     "status": "pending",
     "order": 3,
-    "description": "Vérification automatique : loyer/revenus ratio (850€/1500€ = 56%, conforme), situation familiale, conditions CAF"
+    "description": "Vérification automatique : loyer/revenus ratio (850€/1500€ = 56%, conforme), 
+    situation familiale, conditions CAF"
   },
   {
     "id": "4",
@@ -886,18 +883,18 @@ Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte 
 
     try {
       const response = await this.vertexAI.generateResponse("CHAT", prompt);
-      
+
       // Nettoyer la réponse (enlever markdown, espaces, etc.)
       const cleanedResponse = this.cleanJsonResponse(response);
-      
+
       // Parser le JSON
       const stepsArray = JSON.parse(cleanedResponse);
-      
+
       // Validation stricte du format
       if (!this.validateStepsFormat(stepsArray)) {
         throw new Error("Format de steps invalide retourné par l'IA");
       }
-      
+
       // Ajouter l'étape 0 (analyse) qui est toujours présente et completed
       const baseStep = {
         id: "0",
@@ -906,11 +903,10 @@ Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte 
         order: 0,
         description: `Collecte et vérification des informations pour ${demarche}`,
       };
-      
+
       return [baseStep, ...stepsArray];
-      
     } catch (error) {
-      console.error("❌ Erreur lors de la génération IA des steps:", error);
+      console.error("Erreur lors de la génération IA des steps:", error);
       throw error; // Propager l'erreur pour déclencher le fallback
     }
   }
@@ -920,12 +916,12 @@ Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte 
    */
   private buildUserContextSummary(collectedInfo: any): string {
     const summary: string[] = [];
-    
+
     // Informations personnelles
     if (collectedInfo.nom || collectedInfo.prenom) {
       summary.push(`- Identité : ${collectedInfo.prenom || "?"} ${collectedInfo.nom || "?"}`);
     }
-    
+
     // Localisation
     if (collectedInfo.ville) {
       summary.push(`- Ville : ${collectedInfo.ville}`);
@@ -933,12 +929,12 @@ Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte 
         summary.push(`- Code postal : ${collectedInfo.codePostal}`);
       }
     }
-    
+
     // Situation
     if (collectedInfo.situation) {
       summary.push(`- Situation : ${collectedInfo.situation}`);
     }
-    
+
     // Logement (pour APL, etc.)
     if (collectedInfo.loyer) {
       summary.push(`- Loyer mensuel : ${collectedInfo.loyer}€`);
@@ -946,12 +942,12 @@ Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte 
     if (collectedInfo.logement) {
       summary.push(`- Type logement : ${collectedInfo.logement}`);
     }
-    
+
     // Revenus
     if (collectedInfo.revenus) {
       summary.push(`- Revenus mensuels : ${collectedInfo.revenus}€`);
     }
-    
+
     // Enfants (pour allocations, naissance, etc.)
     if (collectedInfo.nomEnfant || collectedInfo.prenomEnfant) {
       summary.push(`- Enfant : ${collectedInfo.prenomEnfant || "?"} ${collectedInfo.nomEnfant || "?"}`);
@@ -959,12 +955,12 @@ Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte 
     if (collectedInfo.dateNaissanceEnfant) {
       summary.push(`- Date naissance enfant : ${collectedInfo.dateNaissanceEnfant}`);
     }
-    
+
     // Autres infos pertinentes
     if (collectedInfo.dateEntree) {
       summary.push(`- Date entrée logement : ${collectedInfo.dateEntree}`);
     }
-    
+
     return summary.length > 0 ? summary.join("\n") : "Aucune information spécifique disponible";
   }
 
@@ -975,47 +971,45 @@ Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte 
     try {
       // Vérifier que c'est un array
       if (!Array.isArray(steps)) {
-        console.error("❌ Steps n'est pas un array");
+        console.error("Steps n'est pas un array");
         return false;
       }
-      
+
       // Vérifier qu'il y a au moins 3 étapes et max 6
       if (steps.length < 3 || steps.length > 6) {
-        console.error(`❌ Nombre de steps invalide: ${steps.length} (attendu: 3-6)`);
+        console.error(`Nombre de steps invalide: ${steps.length} (attendu: 3-6)`);
         return false;
       }
-      
+
       // Vérifier chaque step
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
-        
+
         // Vérifier présence des champs obligatoires
         if (!step.id || !step.name || !step.status || step.order === undefined || !step.description) {
-          console.error(`❌ Step ${i} invalide, champs manquants:`, step);
+          console.error(`Step ${i} invalide, champs manquants:`, step);
           return false;
         }
-        
+
         // Vérifier types
-        if (typeof step.id !== "string" || 
-            typeof step.name !== "string" || 
-            typeof step.status !== "string" || 
-            typeof step.order !== "number" || 
+        if (typeof step.id !== "string" ||
+            typeof step.name !== "string" ||
+            typeof step.status !== "string" ||
+            typeof step.order !== "number" ||
             typeof step.description !== "string") {
-          console.error(`❌ Step ${i} invalide, types incorrects:`, step);
+          console.error(`Step ${i} invalide, types incorrects:`, step);
           return false;
         }
-        
+
         // Vérifier que status est "pending"
         if (step.status !== "pending") {
-          console.warn(`⚠️ Step ${i} status n'est pas "pending", correction automatique`);
           step.status = "pending";
         }
       }
-      
+
       return true;
-      
     } catch (error) {
-      console.error("❌ Erreur validation steps:", error);
+      console.error("Erreur validation steps:", error);
       return false;
     }
   }
@@ -1025,8 +1019,6 @@ Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte 
    * Utilisé si l'IA échoue pour garantir la robustesse
    */
   private generateDetailedStepsFallback(demarche: string, collectedInfo: any): any[] {
-    console.log("🔄 Utilisation du système de fallback (steps hardcodés)");
-    
     // Étape 0 toujours présente: Analyse
     const baseSteps = [
       {
@@ -1055,7 +1047,8 @@ Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte 
           name: "Remplissage formulaire APL",
           status: "pending",
           order: 2,
-          description: `Saisie automatique: identité, logement à ${collectedInfo.ville || "votre ville"}, loyer ${collectedInfo.loyer || "..."}€`,
+          description: `Saisie automatique: identité, logement à ${collectedInfo.ville || "votre ville"}, ` +
+            `loyer ${collectedInfo.loyer || "..."}€`,
         },
         {
           id: "3",
@@ -1139,14 +1132,13 @@ Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte 
   private async createProcessFromConversation(
     sessionId: string,
     intentAnalysis: any,
-    providedUserId?: string  // ✅ NOUVEAU : userId passé depuis le trigger
+    providedUserId?: string // ✅ NOUVEAU : userId passé depuis le trigger
   ): Promise<void> {
     try {
       // 1. Récupérer userId : priorité au providedUserId, sinon fallback sur first message
       let userId = providedUserId;
-      
+
       if (!userId) {
-        console.log("⚠️ userId non fourni, recherche dans les messages...");
         const messagesSnapshot = await this.db
           .collection("messages")
           .where("sessionId", "==", sessionId)
@@ -1166,15 +1158,10 @@ Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte 
       if (!userId) {
         throw new Error("userId manquant - l'utilisateur doit être authentifié");
       }
-      
-      console.log(`✅ userId récupéré : ${userId}`);
 
       // 2. Créer le processus avec steps **détaillées et spécifiques à la démarche**
-      console.log(`🤖 Génération des steps pour: ${intentAnalysis.demarche}`);
       const steps = await this.generateDetailedSteps(intentAnalysis.demarche, intentAnalysis.collectedInfo);
-      
-      console.log(`🔍 [ChatAgent] Steps générées:`, JSON.stringify(steps, null, 2));
-      
+
       const processData = {
         title: intentAnalysis.demarche,
         userId: userId,
@@ -1188,18 +1175,7 @@ Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte 
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
-      console.log(`🔍 [ChatAgent] processData AVANT .add():`, JSON.stringify(processData, null, 2));
-
-      const processRef = await this.db.collection("processes").add(processData);
-
-      console.log(`✅ Processus créé avec succès:`, {
-        processId: processRef.id,
-        userId: userId,
-        sessionId: sessionId,
-        title: intentAnalysis.demarche,
-        status: "created",
-        stepsCount: steps.length
-      });
+      await this.db.collection("processes").add(processData);
 
       // 3. Envoyer message de confirmation généré par l'IA
       await this.generateAndSendConfirmationMessage(sessionId, intentAnalysis);
@@ -1219,7 +1195,8 @@ Donc adapte les étapes, sites, descriptions en fonction de la démarche exacte 
     const organism = this.getOrganismForDemarche(intentAnalysis.demarche);
     const documents = this.getDocumentsList(intentAnalysis.demarche);
 
-    const confirmationMessage = `🎉 **Félicitations ! Votre dossier "${intentAnalysis.demarche}" a été créé avec succès.**
+    const confirmationMessage = `🎉 **Félicitations ! Votre dossier "${intentAnalysis.demarche}" ` +
+      `a été créé avec succès.**
 
 ✅ **SimplifIA s'occupe de tout pour vous :**
 
@@ -1246,16 +1223,57 @@ _Vous n'avez rien à faire, SimplifIA gère toute la démarche administrative po
   }
 
   /**
+   * Nettoyer et formater le texte pour une meilleure lisibilité
+   * - Remplace le markdown par du texte simple
+   * - Ajoute des sauts de ligne pour aérer
+   * - Supprime les astérisques
+   */
+  private formatMessageForDisplay(content: string): string {
+    let formatted = content;
+
+    // Supprimer le markdown gras (**texte** → texte)
+    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, "$1");
+
+    // Supprimer le markdown italique (*texte* ou _texte_ → texte)
+    formatted = formatted.replace(/\*([^*]+)\*/g, "$1");
+    formatted = formatted.replace(/_([^_]+)_/g, "$1");
+
+    // Améliorer le formatage des listes d'informations collectées
+    // Pattern: "✓ nom: NATHAN" → avec saut de ligne avant
+    formatted = formatted.replace(/([✓✅❌])\s*/gu, "\n$1 ");
+
+    // Ajouter des sauts de ligne avant "J'ai encore besoin de"
+    formatted = formatted.replace(/(J'ai encore besoin de|Il me manque encore)/g, "\n\n$1");
+
+    // Ajouter des sauts de ligne avant les tirets de liste
+    formatted = formatted.replace(/\n?- /g, "\n- ");
+
+    // Ajouter des sauts de ligne après les sections (texte se terminant par :)
+    formatted = formatted.replace(/:\s*\n?([A-ZÀÂÄÉÈÊËÏÎÔÙÛÜŸ])/g, ":\n\n$1");
+
+    // Nettoyer les sauts de ligne excessifs (max 2)
+    formatted = formatted.replace(/\n{3,}/g, "\n\n");
+
+    // Supprimer les espaces en début/fin
+    formatted = formatted.trim();
+
+    return formatted;
+  }
+
+  /**
    * Ajouter une réponse de l'agent au chat
    */
   private async addAgentResponse(
     sessionId: string,
     content: string
   ): Promise<void> {
+    // Formater le message pour une meilleure lisibilité
+    const formattedContent = this.formatMessageForDisplay(content);
+
     await this.db.collection("messages").add({
       sessionId,
       role: "agent",
-      content,
+      content: formattedContent,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
       metadata: {
         isTyping: false,
@@ -1301,62 +1319,62 @@ _Vous n'avez rien à faire, SimplifIA gère toute la démarche administrative po
     const lowerDemarche = demarche.toLowerCase();
 
     // CAF (Caisse d'Allocations Familiales)
-    if (lowerDemarche.includes("apl") || 
+    if (lowerDemarche.includes("apl") ||
         lowerDemarche.includes("aide au logement") ||
-        lowerDemarche.includes("caf") || 
+        lowerDemarche.includes("caf") ||
         lowerDemarche.includes("rsa") ||
         lowerDemarche.includes("allocation familiale") ||
         lowerDemarche.includes("prime d'activité") ||
         lowerDemarche.includes("aah")) {
       return "CAF (Caisse d'Allocations Familiales)";
     }
-    
+
     // ANTS (Agence Nationale des Titres Sécurisés)
-    if (lowerDemarche.includes("passeport") || 
-        lowerDemarche.includes("carte d'identité") || 
+    if (lowerDemarche.includes("passeport") ||
+        lowerDemarche.includes("carte d'identité") ||
         lowerDemarche.includes("cni") ||
         lowerDemarche.includes("permis de conduire") ||
         lowerDemarche.includes("titre de voyage")) {
       return "ANTS (Agence Nationale des Titres Sécurisés)";
     }
-    
+
     // Impôts (Direction Générale des Finances Publiques)
-    if (lowerDemarche.includes("impôt") || 
+    if (lowerDemarche.includes("impôt") ||
         lowerDemarche.includes("taxe") ||
         lowerDemarche.includes("déclaration revenus") ||
         lowerDemarche.includes("dgfip")) {
       return "Impots.gouv.fr";
     }
-    
+
     // Assurance Maladie / Sécurité Sociale
-    if (lowerDemarche.includes("sécurité sociale") || 
+    if (lowerDemarche.includes("sécurité sociale") ||
         lowerDemarche.includes("ameli") ||
         lowerDemarche.includes("carte vitale") ||
         lowerDemarche.includes("remboursement") ||
         lowerDemarche.includes("cpam")) {
       return "Ameli (Sécurité Sociale)";
     }
-    
+
     // Pôle Emploi
-    if (lowerDemarche.includes("pole emploi") || 
+    if (lowerDemarche.includes("pole emploi") ||
         lowerDemarche.includes("pôle emploi") ||
         lowerDemarche.includes("chômage") ||
         lowerDemarche.includes("inscription demandeur") ||
         lowerDemarche.includes("actualisation")) {
       return "Pôle Emploi";
     }
-    
+
     // Préfecture
-    if (lowerDemarche.includes("titre de séjour") || 
+    if (lowerDemarche.includes("titre de séjour") ||
         lowerDemarche.includes("carte de séjour") ||
         lowerDemarche.includes("préfecture") ||
         lowerDemarche.includes("carte grise") ||
         lowerDemarche.includes("certificat d'immatriculation")) {
       return "Préfecture";
     }
-    
+
     // URSSAF
-    if (lowerDemarche.includes("urssaf") || 
+    if (lowerDemarche.includes("urssaf") ||
         lowerDemarche.includes("auto-entrepreneur") ||
         lowerDemarche.includes("micro-entreprise") ||
         lowerDemarche.includes("cotisation sociale")) {
@@ -1371,82 +1389,93 @@ _Vous n'avez rien à faire, SimplifIA gère toute la démarche administrative po
    */
   private getDocumentsList(demarche: string): string {
     const lowerDemarche = demarche.toLowerCase();
-    
+
     // CAF - APL / Aide au logement
     if (lowerDemarche.includes("apl") || lowerDemarche.includes("aide au logement")) {
       return "Bail de location, RIB, Avis d'imposition N-1, Justificatif de domicile, Pièce d'identité";
     }
-    
+
     // CAF - RSA
     if (lowerDemarche.includes("rsa")) {
-      return "RIB, Justificatif de domicile, Pièce d'identité, Attestation Pôle Emploi (si inscrit), Relevé d'identité bancaire";
+      return "RIB, Justificatif de domicile, Pièce d'identité, " +
+        "Attestation Pôle Emploi (si inscrit), Relevé d'identité bancaire";
     }
-    
+
     // CAF - Allocations familiales
     if (lowerDemarche.includes("allocation familiale")) {
       return "Livret de famille, RIB, Justificatif de domicile, Avis d'imposition";
     }
-    
+
     // CAF - Prime d'activité
     if (lowerDemarche.includes("prime d'activité")) {
       return "Bulletins de salaire (3 derniers mois), RIB, Avis d'imposition, Justificatif de domicile";
     }
-    
+
     // ANTS - Passeport (renouvellement)
-    if (lowerDemarche.includes("passeport") && (lowerDemarche.includes("renouvellement") || lowerDemarche.includes("renouveler"))) {
-      return "Ancien passeport, Photo d'identité (format ANTS), Justificatif de domicile de moins de 6 mois, Timbre fiscal électronique (86€)";
+    if (lowerDemarche.includes("passeport") &&
+        (lowerDemarche.includes("renouvellement") || lowerDemarche.includes("renouveler"))) {
+      return "Ancien passeport, Photo d'identité (format ANTS), " +
+        "Justificatif de domicile de moins de 6 mois, Timbre fiscal électronique (86€)";
     }
-    
+
     // ANTS - Passeport (première demande)
     if (lowerDemarche.includes("passeport")) {
-      return "Acte de naissance, Photo d'identité (format ANTS), Justificatif de domicile de moins de 6 mois, Pièce d'identité, Timbre fiscal électronique (86€)";
+      return "Acte de naissance, Photo d'identité (format ANTS), " +
+        "Justificatif de domicile de moins de 6 mois, Pièce d'identité, " +
+        "Timbre fiscal électronique (86€)";
     }
-    
+
     // ANTS - Carte d'identité
     if (lowerDemarche.includes("carte d'identité") || lowerDemarche.includes("cni")) {
-      return "Ancien titre (CNI ou passeport), Photo d'identité (format ANTS), Justificatif de domicile de moins de 6 mois";
+      return "Ancien titre (CNI ou passeport), Photo d'identité (format ANTS), " +
+        "Justificatif de domicile de moins de 6 mois";
     }
-    
+
     // ANTS - Permis de conduire
     if (lowerDemarche.includes("permis de conduire")) {
-      return "Pièce d'identité, Justificatif de domicile, Photo d'identité (format ANTS), Attestation de formation (code + conduite)";
+      return "Pièce d'identité, Justificatif de domicile, Photo d'identité (format ANTS), " +
+        "Attestation de formation (code + conduite)";
     }
-    
+
     // Impôts - Déclaration de revenus
     if (lowerDemarche.includes("déclaration") && lowerDemarche.includes("revenus")) {
-      return "Justificatifs de revenus (salaires, pensions, etc.), Justificatifs de charges déductibles, RIB pour remboursement";
+      return "Justificatifs de revenus (salaires, pensions, etc.), " +
+        "Justificatifs de charges déductibles, RIB pour remboursement";
     }
-    
+
     // Sécu - Carte Vitale
     if (lowerDemarche.includes("carte vitale")) {
       return "Pièce d'identité, Justificatif de domicile, RIB, Photo d'identité";
     }
-    
+
     // Sécu - Remboursement
     if (lowerDemarche.includes("remboursement")) {
       return "Feuille de soins, Ordonnance, Factures, RIB, Carte Vitale";
     }
-    
+
     // Pôle Emploi - Inscription
-    if (lowerDemarche.includes("inscription") && (lowerDemarche.includes("chômage") || lowerDemarche.includes("pole emploi"))) {
+    if (lowerDemarche.includes("inscription") &&
+        (lowerDemarche.includes("chômage") || lowerDemarche.includes("pole emploi"))) {
       return "Attestation employeur (certificat de travail), RIB, Pièce d'identité, CV, Justificatif de domicile";
     }
-    
+
     // Préfecture - Titre de séjour
     if (lowerDemarche.includes("titre de séjour") || lowerDemarche.includes("carte de séjour")) {
-      return "Passeport, Visa (si applicable), Justificatif de domicile, Photos d'identité, Justificatif de ressources, Attestation d'assurance maladie";
+      return "Passeport, Visa (si applicable), Justificatif de domicile, Photos d'identité, " +
+        "Justificatif de ressources, Attestation d'assurance maladie";
     }
-    
+
     // Préfecture - Carte grise
     if (lowerDemarche.includes("carte grise") || lowerDemarche.includes("certificat d'immatriculation")) {
-      return "Certificat de cession (si occasion), Justificatif de domicile, Pièce d'identité, Contrôle technique (si + 4 ans), Justificatif d'assurance";
+      return "Certificat de cession (si occasion), Justificatif de domicile, Pièce d'identité, " +
+        "Contrôle technique (si + 4 ans), Justificatif d'assurance";
     }
-    
+
     // URSSAF - Auto-entrepreneur
     if (lowerDemarche.includes("auto-entrepreneur") || lowerDemarche.includes("micro-entreprise")) {
       return "Pièce d'identité, RIB, Justificatif de domicile, Déclaration d'activité (formulaire P0)";
     }
-    
+
     // Défaut générique
     return "Documents à définir selon votre situation (nous vous guiderons)";
   }

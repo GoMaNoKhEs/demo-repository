@@ -15,8 +15,6 @@ export const subscribeToProcess = (
   callback: (process: Process) => void,
   onError?: (error: Error) => void
 ): Unsubscribe => {
-  console.log('[Realtime] 🔍 Subscribing to process for sessionId:', sessionId);
-  console.log('[Realtime] 🔍 Query: collection=processes, where(sessionId ==', sessionId + ')');
 
   // Query simple: filtrer uniquement par sessionId
   // Les règles Firestore vérifieront que userId correspond
@@ -28,38 +26,21 @@ export const subscribeToProcess = (
   return onSnapshot(
     q,
     (snapshot) => {
-      console.log('[Realtime] 📦 Snapshot received:', {
-        empty: snapshot.empty,
-        size: snapshot.size,
-        sessionId
-      });
-      
       if (snapshot.empty) {
-        console.log('[Realtime] ℹ️ No process found yet for session:', sessionId);
         return;
       }
 
       snapshot.docs.forEach(doc => {
         const data = doc.data();
-        console.log('[Realtime] 📄 Process data received:', {
-          id: doc.id,
-          userId: data.userId,
-          sessionId: data.sessionId,
-          status: data.status,
-          hasSteps: !!data.steps,
-          stepsType: typeof data.steps,
-          stepsLength: data.steps ? data.steps.length : 0
-        });
         
-        // 🔍 LOG DÉTAILLÉ DES STEPS
+        // LOG DÉTAILLÉ DES STEPS
         if (data.steps) {
-          console.log('[Realtime] ✅ Steps présents:', JSON.stringify(data.steps, null, 2));
+          // Steps présents
         } else {
-          console.log('[Realtime] ❌ AUCUN STEPS dans les données Firestore!');
-          console.log('[Realtime] 📋 Toutes les clés du document:', Object.keys(data));
+          // Pas de steps
         }
         
-        // ✅ FIX: Convertir les timestamps Firestore imbriqués dans steps
+        // FIX: Convertir les timestamps Firestore imbriqués dans steps
         let steps = data.steps;
         if (steps) {
           if (Array.isArray(steps)) {
@@ -71,37 +52,33 @@ export const subscribeToProcess = (
             }));
           } else if (typeof steps === 'object') {
             // Format Object (ancien orchestrator): convertir les timestamps de chaque clé
-            steps = Object.entries(steps).reduce((acc, [key, value]: [string, any]) => {
+            steps = Object.entries(steps).reduce((acc, [key, value]: [string, unknown]) => {
+              const stepValue = value as { startedAt?: { toDate?: () => Date }; completedAt?: { toDate?: () => Date } };
               acc[key] = {
-                ...value,
-                startedAt: value.startedAt?.toDate?.() || value.startedAt,
-                completedAt: value.completedAt?.toDate?.() || value.completedAt,
+                ...stepValue,
+                startedAt: stepValue.startedAt?.toDate?.() || stepValue.startedAt,
+                completedAt: stepValue.completedAt?.toDate?.() || stepValue.completedAt,
               };
               return acc;
-            }, {} as Record<string, any>);
+            }, {} as Record<string, unknown>);
           }
         }
         
         const process: Process = {
           id: doc.id,
           ...data,
-          steps: steps, // ✅ Utiliser steps avec timestamps convertis
+          steps: steps, // Utiliser steps avec timestamps convertis
           // Gérer les timestamps qui peuvent être null avec serverTimestamp
           createdAt: data.createdAt?.toDate() || new Date(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
           completedAt: data.completedAt?.toDate(),
         } as Process;
         
-        console.log('[Realtime] ✅ Process updated:', process.id, process.status);
         callback(process);
       });
     },
     (error) => {
-      console.error('[Realtime] ❌ ERREUR subscribing to process:', {
-        message: error.message,
-        code: (error as any).code,
-        sessionId
-      });
+      // Error subscribing to process - handled by onError callback
       onError?.(error);
     }
   );
@@ -119,7 +96,6 @@ export const subscribeToActivityLogs = (
   callback: (logs: ActivityLog[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe => {
-  console.log('[Realtime] Subscribing to activity logs for process:', processId);
 
   const q = query(
     collection(db, 'activity_logs'),
@@ -140,11 +116,10 @@ export const subscribeToActivityLogs = (
         } as ActivityLog;
       });
       
-      console.log('[Realtime] Activity logs updated:', logs.length, 'logs');
       callback(logs);
     },
     (error) => {
-      console.error('[Realtime] Error subscribing to activity logs:', error);
+      // Error subscribing to activity logs - handled by onError callback
       onError?.(error);
     }
   );
@@ -162,29 +137,21 @@ export const subscribeToMessages = (
   callback: (messages: ChatMessage[]) => void,
   onError?: (error: Error) => void
 ): Unsubscribe => {
-  console.log('[Realtime] 🔔 Subscribing to messages for session:', sessionId);
-  console.log('[Realtime] 🔔 Firestore db instance:', db ? 'OK' : 'NULL');
 
-  // 🔥 TEMPORAIRE : Sans orderBy pour tester (en attendant que l'index soit créé)
+  // TEMPORAIRE : Sans orderBy pour tester (en attendant que l'index soit créé)
   const q = query(
     collection(db, 'messages'),
     where('sessionId', '==', sessionId)
     // orderBy('timestamp', 'asc')  // Commenté temporairement
   );
 
-  console.log('[Realtime] 🔔 Query created, waiting for snapshot...');
 
   return onSnapshot(
     q,
     (snapshot) => {
-      console.log('[Realtime] 🔔 SNAPSHOT RECEIVED!');
-      console.log('[Realtime] 🔔 Snapshot empty:', snapshot.empty);
-      console.log('[Realtime] 🔔 Snapshot size:', snapshot.size);
-      console.log('[Realtime] 🔔 Snapshot docs:', snapshot.docs.length);
       
       const messages = snapshot.docs.map(doc => {
         const data = doc.data();
-        console.log('[Realtime] 🔔 Message doc:', doc.id, data);
         return {
           id: doc.id,
           ...data,
@@ -196,14 +163,10 @@ export const subscribeToMessages = (
       // Trier manuellement en attendant l'index
       messages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
       
-      console.log('[Realtime] 📨 Messages updated:', messages.length, 'messages');
-      console.log('[Realtime] 📨 Messages data:', messages);
       callback(messages);
     },
     (error) => {
-      console.error('[Realtime] ❌ Error subscribing to messages:', error);
-      console.error('[Realtime] ❌ Error code:', error.code);
-      console.error('[Realtime] ❌ Error message:', error.message);
+      // Error subscribing to messages - handled by onError callback
       onError?.(error);
     }
   );
