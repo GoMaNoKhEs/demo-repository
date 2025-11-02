@@ -27,6 +27,102 @@ export class ValidatorAgent {
   }
 
   /**
+   * Retourne les champs requis pour une démarche donnée
+   * Permet de filtrer les données à valider selon le type de démarche
+   */
+  private getRequiredFieldsForDemarche(typeDemarche: string): string[] {
+    const baseFields = [
+      "nom",
+      "prenom",
+      "email",
+      "telephone",
+      "dateNaissance",
+      "adresseComplete",
+      "ville",
+      "codePostal",
+    ];
+
+    if (typeDemarche.includes("apl") || typeDemarche.includes("logement")) {
+      return [
+        ...baseFields,
+        "situation",
+        "logement",
+        "loyer",
+        "charges",
+        "revenus",
+        "nomBailleur",
+        "dateEntree",
+        "surfaceLogement",
+      ];
+    }
+
+    if (typeDemarche.includes("naissance") || typeDemarche.includes("déclaration")) {
+      return [
+        ...baseFields,
+        "lieuNaissance",
+        "nomEnfant",
+        "prenomEnfant",
+        "dateNaissanceEnfant",
+        "lieuNaissanceEnfant",
+      ];
+    }
+
+    if (typeDemarche.includes("cni") || typeDemarche.includes("carte") || typeDemarche.includes("passeport")) {
+      return [
+        ...baseFields,
+        "lieuNaissance",
+        "numeroSecu",
+        "taille",
+        "couleurYeux",
+        "photo",
+        "timbreFiscal",
+        "ancienPasseport",
+      ];
+    }
+
+    if (typeDemarche.includes("rsa") || typeDemarche.includes("revenu") || typeDemarche.includes("aide")) {
+      return [
+        ...baseFields,
+        "situation",
+        "nombreEnfants",
+        "revenus",
+        "rib",
+        "numeroAllocataire",
+      ];
+    }
+
+    if (typeDemarche.includes("impot") || typeDemarche.includes("impôt") || typeDemarche.includes("fiscal")) {
+      return [
+        ...baseFields,
+        "numeroFiscal",
+        "revenus",
+        "situation",
+        "nombreEnfants",
+        "rib",
+      ];
+    }
+
+    if (typeDemarche.includes("mariage")) {
+      return [
+        ...baseFields,
+        "lieuNaissance",
+        "nomConjoint",
+        "prenomConjoint",
+        "dateNaissanceConjoint",
+        "lieuNaissanceConjoint",
+        "dateMariage",
+        "lieuMariage",
+        "regimeMatrimonial",
+        "contratMariage",
+        "notaire",
+      ];
+    }
+
+    // Par défaut, retourner les champs de base
+    return baseFields;
+  }
+
+  /**
    * Helper pour créer un log détaillé d'action
    * Permet de créer des logs granulaires pour chaque micro-action
    *
@@ -102,17 +198,34 @@ export class ValidatorAgent {
         { typeDemarche }
       );
 
-      // LOG DÉTAILLÉ: Nombre de champs à valider
-      const fieldsCount = Object.keys(mappedData).length;
+      // 🔥 FILTRER LES CHAMPS selon le type de démarche
+      const requiredFields = this.getRequiredFieldsForDemarche(typeDemarche);
+      const filteredData: Record<string, unknown> = {};
+
+      // Ne garder que les champs pertinents pour cette démarche
+      for (const field of requiredFields) {
+        if (mappedData[field] !== undefined) {
+          filteredData[field] = mappedData[field];
+        }
+      }
+
+      // LOG DÉTAILLÉ: Nombre de champs filtrés vs total
+      const totalFields = Object.keys(mappedData).length;
+      const relevantFields = Object.keys(filteredData).length;
       await this.logDetailedAction(
         processId,
-        `📊 Validation de ${fieldsCount} champs`,
+        `📊 Validation de ${relevantFields} champs pertinents (${totalFields} champs totaux)`,
         "info",
-        { fieldsCount }
+        {
+          typeDemarche,
+          totalFields,
+          relevantFields,
+          filteredFields: Object.keys(filteredData).join(", "),
+        }
       );
 
-      // Construire le prompt de validation ADAPTATIF
-      const prompt = this.buildValidationPrompt(mappedData, typeDemarche);
+      // Construire le prompt de validation ADAPTATIF avec les données filtrées
+      const prompt = this.buildValidationPrompt(filteredData, typeDemarche);
 
       // LOG DÉTAILLÉ: Utilisation IA pour validation
       await this.logDetailedAction(
