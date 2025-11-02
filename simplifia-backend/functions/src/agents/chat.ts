@@ -593,7 +593,7 @@ ${currentMessage}
 
 Analyse et retourne UNIQUEMENT ce JSON (pas de markdown):
 {
-  "demarche": "nom précis de la démarche (ex: Demande APL, Renouvellement passeport)",
+  "demarche": "nom précis de la démarche (ex: Demande APL, Renouvellement passeport, Déclaration naissance)",
   "readyToStart": true/false,
   "userConfirmed": true/false,
   "confidence": 0.0-1.0,
@@ -604,51 +604,112 @@ Analyse et retourne UNIQUEMENT ce JSON (pas de markdown):
     "email": "adresse email ou null",
     "telephone": "numéro de téléphone ou null",
     "dateNaissance": "date de naissance (format JJ/MM/AAAA) ou null",
-    "situation": "étudiant/salarié/demandeur d'emploi/retraité ou null",
-    "logement": "locataire/propriétaire/colocataire/sous-locataire ou null",
-    "adresseComplete": "adresse complète du logement (rue, code postal, ville) ou null",
+    "numeroSecu": "numéro de sécurité sociale (15 chiffres) ou null",
+    "adresseComplete": "adresse complète (rue, code postal, ville) ou null",
     "ville": "nom ville ou null",
     "codePostal": "code postal ou null",
-    "loyer": "montant du loyer mensuel (nombre) ou null",
-    "charges": "montant des charges (nombre) ou null",
-    "revenus": "revenus mensuels nets (nombre) ou null",
-    "nomBailleur": "nom du propriétaire/bailleur ou null",
-    "dateEntree": "date d'entrée dans le logement (format MM/AAAA) ou null",
-    "surfaceLogement": "surface en m² (nombre) ou null",
-    "numeroSecu": "numéro de sécurité sociale (optionnel) ou null",
-    "etablissement": "nom établissement scolaire/entreprise (si étudiant/salarié) ou null"
+    
+    "situation": "étudiant/salarié/demandeur d'emploi/retraité ou null (pour APL/RSA)",
+    "logement": "locataire/propriétaire/colocataire/sous-locataire ou null (pour APL)",
+    "loyer": "montant du loyer mensuel (nombre) ou null (pour APL)",
+    "charges": "montant des charges (nombre) ou null (pour APL)",
+    "revenus": "revenus mensuels nets (nombre) ou null (pour APL/RSA)",
+    "nomBailleur": "nom du propriétaire/bailleur ou null (pour APL)",
+    "dateEntree": "date d'entrée dans le logement (format MM/AAAA) ou null (pour APL)",
+    "surfaceLogement": "surface en m² (nombre) ou null (pour APL)",
+    "numeroAllocataire": "numéro allocataire CAF (7 chiffres) ou null (pour APL/RSA)",
+    "rib": "RIB ou IBAN (format FR + 25 chiffres ou 23 chiffres) ou null (pour APL/RSA)",
+    "etablissement": "nom établissement scolaire/entreprise (si étudiant/salarié) ou null (pour APL)",
+    
+    "lieuNaissance": "lieu de naissance complet (ville, département) ou null (pour Passeport/CNI)",
+    "taille": "taille en cm (nombre) ou null (pour Passeport/CNI)",
+    "couleurYeux": "couleur des yeux (marron/bleu/vert/noisette) ou null (pour Passeport/CNI)",
+    "photo": "confirmation photo identité disponible (oui/non/null) (pour Passeport/CNI)",
+    "timbreFiscal": "confirmation achat timbre fiscal ou numéro timbre ou null (pour Passeport)",
+    "ancienPasseport": "date expiration ancien passeport (format JJ/MM/AAAA) ou null (pour Passeport)",
+    
+    "nomEnfant": "nom de l'enfant ou null (pour Naissance)",
+    "prenomEnfant": "prénom de l'enfant ou null (pour Naissance)",
+    "dateNaissanceEnfant": "date naissance enfant (format JJ/MM/AAAA) ou null (pour Naissance)",
+    "lieuNaissanceEnfant": "lieu naissance enfant (hôpital, ville) ou null (pour Naissance)",
+    "nomMere": "nom mère ou null (pour Naissance)",
+    "nomPere": "nom père ou null (pour Naissance)"
   }
 }
 
-Critères pour readyToStart = true:
-- La démarche est clairement identifiée
-- TOUS LES CHAMPS OBLIGATOIRES SUIVANTS SONT COLLECTÉS (pas de null):
-  * nom, prenom, email, telephone, dateNaissance
-  * adresseComplete, ville, codePostal
-  * situation (étudiant/salarié/etc)
-  * logement (locataire/propriétaire)
-  * loyer, charges, revenus
-  * nomBailleur, dateEntree, surfaceLogement
-- Si UN SEUL champ obligatoire manque → readyToStart = FALSE
-- TOUJOURS vérifier TOUS les champs avant de dire readyToStart = true
+RÈGLES D'EXTRACTION INTELLIGENTE:
+1. **Extraire TOUS les champs mentionnés** dans la conversation, même si la démarche n'est pas encore identifiée
+2. **Identifier la démarche automatiquement** selon les mots-clés:
+   - "passeport", "renouvellement passeport" → Renouvellement passeport
+   - "APL", "aide logement", "CAF" → Demande APL
+   - "RSA", "revenu solidarité" → Demande RSA
+   - "naissance", "déclarer naissance" → Déclaration naissance
+   - "CNI", "carte identité", "carte nationale" → Demande CNI
+   - "permis conduire" → Demande permis
+3. **Extraire même dans phrases complexes**:
+   - "Je m'appelle Jean Dubois, j'habite à Lyon 69003" → nom: "Dubois", prenom: "Jean", ville: "Lyon", codePostal: "69003"
+   - "Je suis né le 12/07/1985 à Toulouse Haute-Garonne" → dateNaissance: "12/07/1985", lieuNaissance: "Toulouse, Haute-Garonne"
+   - "Je mesure 178 cm" → taille: 178
+   - "Yeux marron" ou "couleur yeux marron" → couleurYeux: "marron"
+   - "J'ai une photo d'identité" ou "photo prête" → photo: "oui"
+   - "Pas encore acheté timbre" → timbreFiscal: "non"
+   - "Mon passeport expire le 15/11/2025" → ancienPasseport: "15/11/2025"
+4. **Numéros et formats spéciaux**:
+   - Numéro allocataire: "numéro allocataire 1234567" → numeroAllocataire: "1234567"
+   - RIB: "RIB FR76 1234..." → rib: "FR76 1234..."
+   - Sécurité sociale: "1 85 07 69 123 456 78" → numeroSecu: "1 85 07 69 123 456 78"
+
+CRITÈRES POUR readyToStart = TRUE (SELON LA DÉMARCHE):
+
+**Pour PASSEPORT/CNI:**
+- nom, prenom, email, telephone, dateNaissance ✅
+- lieuNaissance, taille, couleurYeux ✅
+- adresseComplete, ville, codePostal ✅
+- photo = "oui" ✅
+- (timbreFiscal optionnel pour démarrer)
+
+**Pour APL:**
+- nom, prenom, email, telephone, dateNaissance ✅
+- adresseComplete, ville, codePostal ✅
+- situation, logement, loyer, charges, revenus ✅
+- nomBailleur, dateEntree, surfaceLogement ✅
+
+**Pour NAISSANCE:**
+- nom, prenom des parents ✅
+- nomEnfant, prenomEnfant, dateNaissanceEnfant, lieuNaissanceEnfant ✅
+- adresseComplete ✅
+
+**Pour RSA:**
+- nom, prenom, email, telephone, dateNaissance ✅
+- situation = "demandeur d'emploi" ✅
+- revenus (même si 0) ✅
+- numeroAllocataire, rib ✅
 
 Critères pour userConfirmed = true:
 - L'utilisateur confirme EXPLICITEMENT vouloir créer le dossier
-- Expressions OUI: "oui", "ok", "d'accord", "vas-y", "lance", "je veux", "crée", "démarre", "go", "c'est bon", "c'est parti"
+- Expressions OUI: "oui", "ok", "d'accord", "vas-y", "lance", "je veux", "crée", "démarre", "go", "c'est bon", "c'est parti", "fais-le toi-même", "lance le processus"
 - Expressions NON (hésitations): "oui mais...", "peut-être", "je sais pas", "attends"
-- IMPORTANT: Si l'utilisateur dit "lance le processus" ou "fais-le" → userConfirmed = TRUE
+- IMPORTANT: Si l'utilisateur dit "lance le processus" ou "fais-le pour moi" → userConfirmed = TRUE
 
-EXEMPLES:
-- "Oui je veux créer mon dossier" → userConfirmed = true
-- "Lance le processus toi-même" → userConfirmed = true  
-- "Vas-y crée le dossier" → userConfirmed = true
-- "Je pense mais j'hésite" → userConfirmed = false
+EXEMPLES EXTRACTION:
+Message: "Je veux renouveler mon passeport Pierre Leroy, né 12/07/1985 à Toulouse, j'habite 78 Rue République 69002 Lyon, je mesure 178 cm, yeux marron"
+→ demarche: "Renouvellement passeport"
+→ nom: "Leroy", prenom: "Pierre", dateNaissance: "12/07/1985"
+→ lieuNaissance: "Toulouse", ville: "Lyon", codePostal: "69002"
+→ adresseComplete: "78 Rue de la République, 69002 Lyon"
+→ taille: 178, couleurYeux: "marron"
+→ readyToStart: TRUE si email/tel/photo aussi renseignés
 
-EXTRACTION INTELLIGENTE:
-- Extraire les informations même si elles sont dans des phrases longues
-- Exemple: "Je m'appelle Jean Dubois, j'habite à Lyon 69003, je paie 850€ de loyer"
-  → nom: "Dubois", prenom: "Jean", ville: "Lyon", codePostal: "69003", loyer: 850
-- Si le loyer est mentionné avec "€/mois" ou "euros par mois", extraire le nombre`;
+Message: "Lieu de naissance Toulouse, Haute Garonne. Taille 178 cm. Yeux marron. Oui j'ai une photo."
+→ lieuNaissance: "Toulouse, Haute-Garonne"
+→ taille: 178
+→ couleurYeux: "marron"
+→ photo: "oui"
+
+RÈGLE CUMULATIVE:
+- FUSIONNER toutes les infos de l'historique ET du message actuel
+- Si un champ est mentionné plusieurs fois, prendre la DERNIÈRE valeur
+- Ne JAMAIS perdre les infos déjà collectées dans les messages précédents`;
 
       const response = await this.vertexAI.generateResponse("CHAT", prompt, {
         temperature: 0.2, // Baissé pour plus de déterminisme
